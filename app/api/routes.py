@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config import get_settings
-from app.main import _check_api_key, limiter
+from app.api.dependencies import _check_api_key, limiter
 from app.schemas.models import AnalysisResponse, HealthResponse, InterviewTurnRequest, InterviewTurnResponse, CompareResponse
 from app.services.analysis_service import run_analysis, run_analysis_stream
 from app.services.interview_service import handle_interview_turn

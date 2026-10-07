@@ -1,0 +1,28 @@
+# Ignore local virtual environments
+venv/
+env/
+.venv/
+
+# Ignore node_modules
+node_modules/
+frontend/node_modules/
+*/node_modules/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ignore git
+.git/
+
+# Ignore env files
+.env
+.env.*
+!.env.example
+
+# Ignore OS files
+.DS_Store
+
+# Ignore data directory
+data/

@@ -32,10 +32,12 @@ def get_llm(temperature: float = 0.1) -> BaseChatModel:
     logger.info("Initialising LLM: provider=%s, model=%s, timeout=%ss", provider, settings.llm_model, timeout)
 
     if provider == "openai":
+        import os
         return ChatOpenAI(
-            model=settings.llm_model,
+            model="openrouter/free",
             temperature=temperature,
-            api_key=settings.openai_api_key,
+            api_key=os.getenv("OPENAI_API_KEY") or settings.openai_api_key,
+            base_url="https://openrouter.ai/api/v1",
             timeout=timeout,
             max_retries=0,  # Retries are managed by graph retry logic, not the LLM client
         )

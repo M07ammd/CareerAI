@@ -12,9 +12,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+
+from app.api.dependencies import limiter
 
 from app.config import get_settings
 
@@ -31,13 +32,6 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Rate limiter (slowapi)
-# ---------------------------------------------------------------------------
-
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
-
 
 # ---------------------------------------------------------------------------
 # Application lifecycle
@@ -66,24 +60,6 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("CareerPilot AI shutting down.")
-
-
-# ---------------------------------------------------------------------------
-# Optional API-key dependency
-# ---------------------------------------------------------------------------
-
-
-def _check_api_key(request: Request) -> None:
-    """Raise 401 if API_KEY is configured and the header is wrong/missing."""
-    expected = settings.api_key
-    if not expected:
-        return  # Auth disabled
-    provided = request.headers.get("X-API-Key", "")
-    if provided != expected:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing X-API-Key header.",
-        )
 
 
 # ---------------------------------------------------------------------------
