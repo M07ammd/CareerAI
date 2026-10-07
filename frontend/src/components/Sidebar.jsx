@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Target, GitBranch, AlertTriangle, MessageSquare, Map, FileText } from 'lucide-react';
+import { ScrollArea } from './ui/scroll-area';
 
 export default function Sidebar({ score }) {
   const [active, setActive] = useState('overview');
@@ -11,36 +12,38 @@ export default function Sidebar({ score }) {
       if (current) setActive(current.replace('section-', ''));
     }, { rootMargin: '-20% 0px -80% 0px' });
 
-    const sections = document.querySelectorAll('.section-card');
+    const sections = document.querySelectorAll('[id^="section-"]');
     sections.forEach(s => observer.observe(s));
     return () => sections.forEach(s => observer.unobserve(s));
   }, []);
 
   const links = [
-    { id: 'overview',  icon: <Target size={14} />,        label: 'Overview' },
-    { id: 'skills',    icon: <GitBranch size={14} />,     label: 'Skills' },
-    { id: 'gaps',      icon: <AlertTriangle size={14} />, label: 'Skill Gaps' },
-    { id: 'interview', icon: <MessageSquare size={14} />, label: 'Interview' },
-    { id: 'roadmap',   icon: <Map size={14} />,           label: 'Roadmap' },
-    { id: 'cv',        icon: <FileText size={14} />,      label: 'CV Updates' },
-    { id: 'report',    icon: <FileText size={14} />,      label: 'Report' },
+    { id: 'overview',  icon: <Target className="h-4 w-4" />,        label: 'Overview' },
+    { id: 'skills',    icon: <GitBranch className="h-4 w-4" />,     label: 'Skills Match' },
+    { id: 'gaps',      icon: <AlertTriangle className="h-4 w-4" />, label: 'Skill Gaps' },
+    { id: 'interview', icon: <MessageSquare className="h-4 w-4" />, label: 'Interview Prep' },
+    { id: 'roadmap',   icon: <Map className="h-4 w-4" />,           label: 'Roadmap' },
+    { id: 'cv',        icon: <FileText className="h-4 w-4" />,      label: 'CV Updates' },
+    { id: 'report',    icon: <FileText className="h-4 w-4" />,      label: 'Report' },
   ];
 
   return (
-    <aside className="results-sidebar">
-      <div className="sidebar-score-block">
-        <span className="sidebar-score-label">Match Score</span>
-        <span className="sidebar-score-value">{score}</span>
-        <div className="sidebar-score-bar">
-          <div className="sidebar-score-fill" style={{ width: `${score}%` }} />
+    <aside className="w-full md:w-64 shrink-0 md:sticky md:top-24 h-fit pb-8">
+      <div className="p-4 border rounded-lg bg-card shadow-sm mb-6">
+        <div className="flex justify-between items-end mb-2">
+          <span className="text-sm font-medium text-muted-foreground">Match Score</span>
+          <span className="text-2xl font-bold tracking-tight">{score}</span>
+        </div>
+        <div className="h-2 w-full bg-secondary overflow-hidden rounded-full">
+          <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${score}%` }} />
         </div>
       </div>
-      <nav style={{display:'flex',flexDirection:'column',gap:2,marginTop:12}}>
+      <nav className="space-y-1">
         {links.map(l => (
           <a
             key={l.id}
             href={`#section-${l.id}`}
-            className={`sidebar-nav-item${active === l.id ? ' active' : ''}`}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${active === l.id ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'}`}
             onClick={(e) => {
               e.preventDefault();
               const el = document.getElementById(`section-${l.id}`);
@@ -51,7 +54,7 @@ export default function Sidebar({ score }) {
             }}
           >
             {l.icon}
-            <span>{l.label}</span>
+            {l.label}
           </a>
         ))}
       </nav>

@@ -1,4 +1,7 @@
 ﻿import { GitBranch } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 export default function SkillsTable({ skillMatch }) {
   if (!skillMatch) return null;
@@ -10,43 +13,45 @@ export default function SkillsTable({ skillMatch }) {
     ...missing_skills.map(s => ({ skill: s, status: 'missing', evidence: '' })),
   ];
 
-  const statusTag = (s) => {
-    if (s === 'matched') return <span className="tag tag-green">Matched</span>;
-    if (s === 'partial')  return <span className="tag tag-amber">Partial</span>;
-    return <span className="tag tag-red">Missing</span>;
-  };
-
   return (
-    <section className="section-card" id="section-skills">
-      <div className="section-header">
-        <div className="section-title">
-          <GitBranch size={14} />
-          Skills
-        </div>
-        <span className="chip chip-neutral tabular">{rows.length} total</span>
-      </div>
-      <div className="section-body-flush">
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Skill</th>
-                <th>Status</th>
-                <th>Evidence / Notes</th>
-              </tr>
-            </thead>
-            <tbody>
+    <Card id="section-skills" className="mb-6 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-muted-foreground" />
+          Skills Match
+        </CardTitle>
+        <Badge variant="secondary">{rows.length} Total</Badge>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Skill</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Evidence / Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r, i) => (
-                <tr key={i}>
-                  <td style={{fontWeight:500}}>{r.skill}</td>
-                  <td>{statusTag(r.status)}</td>
-                  <td className="td-muted">{r.evidence || '—'}</td>
-                </tr>
+                <TableRow key={i}>
+                  <TableCell className="font-medium">{r.skill}</TableCell>
+                  <TableCell>
+                    {r.status === 'matched' ? (
+                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100/80">Matched</Badge>
+                    ) : r.status === 'partial' ? (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100/80">Partial</Badge>
+                    ) : (
+                      <Badge variant="destructive">Missing</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{r.evidence || '—'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

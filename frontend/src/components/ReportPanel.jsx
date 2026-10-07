@@ -1,4 +1,7 @@
-import { FileText, Copy, Download } from 'lucide-react';
+﻿import { FileText, Copy, Download } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { useToast } from '../hooks/useToast';
 
 export default function ReportPanel({ finalReport, cvRewrites }) {
@@ -26,52 +29,66 @@ export default function ReportPanel({ finalReport, cvRewrites }) {
   };
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:24}}>
+    <div className="space-y-6">
       {cvRewrites?.rewritten_bullets?.length > 0 && (
-        <section className="section-card" id="section-cv">
-          <div className="section-header">
-            <div className="section-title"><FileText size={14} /> CV Improvements</div>
-            <span className="chip chip-neutral">{cvRewrites.rewritten_bullets.length} suggestions</span>
-          </div>
-          <div className="section-body" style={{display:'flex',flexDirection:'column',gap:16}}>
-            {cvRewrites.rewritten_bullets.map((rw, i) => (
-              <div key={i} className="rewrite-item">
-                <div className="rewrite-original">
-                  <div className="rewrite-label">Original</div>
-                  <div className="rewrite-text">{rw.original_text}</div>
+        <Card id="section-cv" className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              CV Improvements
+            </CardTitle>
+            <Badge variant="secondary">{cvRewrites.rewritten_bullets.length} Suggestions</Badge>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {cvRewrites.rewritten_bullets.map((rw, i) => (
+                <div key={i} className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Original</div>
+                      <div className="text-sm p-3 bg-destructive/5 text-destructive-foreground/80 rounded border border-destructive/10 line-through decoration-destructive/30 leading-relaxed">
+                        {rw.original_text}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Suggested Rewrite</div>
+                      <div className="text-sm p-3 bg-emerald-50 text-emerald-900 rounded border border-emerald-100 font-medium leading-relaxed">
+                        {rw.suggested_rewrite}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <strong className="text-foreground">Why:</strong> {rw.reasoning}
+                  </div>
                 </div>
-                <div className="rewrite-suggested">
-                  <div className="rewrite-label">Suggested</div>
-                  <div className="rewrite-text">{rw.suggested_rewrite}</div>
-                </div>
-                <div className="rewrite-reasoning">
-                  <strong>Why:</strong> {rw.reasoning}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {finalReport?.executive_summary && (
-        <section className="section-card" id="section-report">
-          <div className="section-header">
-            <div className="section-title"><FileText size={14} /> Executive Summary</div>
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn btn-outline btn-sm" onClick={handleCopy} type="button">
-                <Copy size={12} /> Copy
-              </button>
-              <button className="btn btn-primary btn-sm" onClick={handleDownload} type="button">
-                <Download size={12} /> Download
-              </button>
+        <Card id="section-report" className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b bg-muted/30">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              Executive Summary
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleCopy}>
+                <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy
+              </Button>
+              <Button size="sm" onClick={handleDownload}>
+                <Download className="h-3.5 w-3.5 mr-1.5" /> Download
+              </Button>
             </div>
-          </div>
-          <div className="section-body">
-            <div className="report-markdown" style={{whiteSpace:'pre-wrap'}}>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap leading-loose text-muted-foreground font-medium">
               {finalReport.executive_summary}
             </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -1,39 +1,40 @@
-import { useState } from 'react';
-import { ChevronRight, Target, Users } from 'lucide-react';
+﻿import { Target } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Separator } from './ui/separator';
 
 function ScoreRing({ score }) {
   const r = 48, stroke = 5;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
-  const color = score >= 70 ? 'var(--green)' : score >= 45 ? 'var(--amber)' : 'var(--red)';
+  const color = score >= 70 ? '#10b981' : score >= 45 ? '#f59e0b' : '#ef4444';
   return (
-    <div className="score-ring-wrap">
-      <svg width="120" height="120" viewBox="0 0 110 110" aria-hidden="true">
-        <circle cx="55" cy="55" r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
+    <div className="relative w-[120px] h-[120px] flex items-center justify-center shrink-0">
+      <svg width="120" height="120" viewBox="0 0 110 110" className="-rotate-90">
+        <circle cx="55" cy="55" r={r} fill="none" className="stroke-muted" strokeWidth={stroke} />
         <circle
           cx="55" cy="55" r={r} fill="none"
           stroke={color} strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 1s var(--ease)' }}
+          className="transition-all duration-1000 ease-out"
         />
       </svg>
-      <div className="score-ring-number">
-        <span className="tabular">{score}</span>
-        <span className="score-ring-sub">/ 100</span>
+      <div className="absolute flex flex-col items-center justify-center">
+        <span className="text-3xl font-bold tracking-tighter tabular-nums">{score}</span>
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Score</span>
       </div>
     </div>
   );
 }
 
 function fitLabel(score) {
-  if (score >= 80) return { label: 'Strong fit', cls: 'chip-green' };
-  if (score >= 60) return { label: 'Good fit',   cls: 'chip-green' };
-  if (score >= 40) return { label: 'Partial fit', cls: 'chip-amber' };
-  return { label: 'Weak fit', cls: 'chip-red' };
+  if (score >= 80) return { label: 'Strong Fit', variant: 'default', cls: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100/80' };
+  if (score >= 60) return { label: 'Good Fit',   variant: 'default', cls: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100/80' };
+  if (score >= 40) return { label: 'Partial Fit', variant: 'secondary', cls: 'bg-amber-100 text-amber-800 hover:bg-amber-100/80' };
+  return { label: 'Weak Fit', variant: 'destructive', cls: '' };
 }
 
 export default function OverviewCard({ result }) {
-  const [showEvidence, setShowEvidence] = useState(false);
   const fr = result?.final_report;
   const sm = result?.skill_match;
   const ra = result?.resume_analysis;
@@ -43,74 +44,66 @@ export default function OverviewCard({ result }) {
   const fit   = fitLabel(score);
 
   return (
-    <section className="section-card" id="section-overview">
-      <div className="section-header">
-        <div className="section-title">
-          <Target size={14} />
+    <Card id="section-overview" className="mb-6 shadow-sm overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 bg-muted/30 pb-4">
+        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <Target className="h-5 w-5 text-muted-foreground" />
           Overview
-        </div>
-        <div className="score-chips">
-          <span className={chip }>{fit.label}</span>
+        </CardTitle>
+        <div className="flex gap-2">
+          <Badge className={fit.cls} variant={fit.variant}>{fit.label}</Badge>
           {fr?.hiring_probability && (
-            <span className={`chip chip-${fr.hiring_probability.toLowerCase() === 'high' ? 'green' : fr.hiring_probability.toLowerCase() === 'medium' ? 'amber' : 'red'}`}>
-              {fr.hiring_probability} probability
-            </span>
+            <Badge variant="outline" className="capitalize">
+              {fr.hiring_probability} Probability
+            </Badge>
           )}
         </div>
-      </div>
-      <div className="section-body">
-        <div className="score-summary">
+      </CardHeader>
+      <CardContent className="pt-6">
+        <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
           <ScoreRing score={score} />
-          <div className="score-details">
-            <p className="score-role">{ja?.job_title || 'Role'}</p>
-            {ra?.candidate_name && <p className="score-person">{ra.candidate_name}</p>}
+          <div className="flex-1 space-y-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">{ja?.job_title || 'Target Role'}</h2>
+              {ra?.candidate_name && <p className="text-muted-foreground">{ra.candidate_name}</p>}
+            </div>
             {(fr?.score_interpretation || sm?.explanation) && (
-              <p className="score-interpretation">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 {fr?.score_interpretation || sm?.explanation}
               </p>
             )}
-            <div className="score-chips">
+            <div className="flex flex-wrap gap-2 pt-2">
               {sm?.matched_skills?.length > 0 && (
-                <span className="chip chip-green">{sm.matched_skills.length} matched</span>
+                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50/80 border-emerald-200">
+                  {sm.matched_skills.length} Matched Skills
+                </Badge>
               )}
               {sm?.missing_skills?.length > 0 && (
-                <span className="chip chip-red">{sm.missing_skills.length} missing</span>
+                <Badge variant="secondary" className="bg-red-50 text-red-700 hover:bg-red-50/80 border-red-200">
+                  {sm.missing_skills.length} Missing Skills
+                </Badge>
               )}
               {ja?.seniority_level && (
-                <span className="chip chip-neutral">{ja.seniority_level}</span>
+                <Badge variant="outline">{ja.seniority_level}</Badge>
               )}
             </div>
           </div>
         </div>
-
+        
         {sm?.evidence_grounded_justification?.length > 0 && (
-          <div style={{marginTop:16}}>
-            <button
-              className="expand-toggle"
-              onClick={() => setShowEvidence(v => !v)}
-              aria-expanded={showEvidence}
-              type="button"
-            >
-              <ChevronRight size={12} />
-              How was this score calculated?
-            </button>
-            <div className={expand-content}>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Evidence from your resume</th></tr>
-                  </thead>
-                  <tbody>
-                    {sm.evidence_grounded_justification.map((ev, i) => (
-                      <tr key={i}><td>{ev}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <>
+            <Separator className="my-6" />
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold tracking-tight">Evidence Grounded Justification</h4>
+              <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-4 marker:text-muted">
+                {sm.evidence_grounded_justification.map((ev, i) => (
+                  <li key={i} className="pl-1 leading-relaxed">{ev}</li>
+                ))}
+              </ul>
             </div>
-          </div>
+          </>
         )}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

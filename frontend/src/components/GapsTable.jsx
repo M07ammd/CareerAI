@@ -1,55 +1,60 @@
-import { AlertTriangle } from 'lucide-react';
+﻿import { AlertTriangle } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 export default function GapsTable({ skillGaps }) {
   if (!skillGaps) return null;
   const all = [
-    ...(skillGaps.high_priority_gaps   || []).map(g => ({ ...g, priority: 'high' })),
-    ...(skillGaps.medium_priority_gaps || []).map(g => ({ ...g, priority: 'medium' })),
-    ...(skillGaps.low_priority_gaps    || []).map(g => ({ ...g, priority: 'low' })),
+    ...(skillGaps.high_priority_gaps   || []).map(g => ({ ...g, priority: 'High' })),
+    ...(skillGaps.medium_priority_gaps || []).map(g => ({ ...g, priority: 'Medium' })),
+    ...(skillGaps.low_priority_gaps    || []).map(g => ({ ...g, priority: 'Low' })),
   ];
 
   return (
-    <section className="section-card" id="section-gaps">
-      <div className="section-header">
-        <div className="section-title">
-          <AlertTriangle size={14} />
+    <Card id="section-gaps" className="mb-6 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-muted-foreground" />
           Skill Gaps
-        </div>
+        </CardTitle>
         {skillGaps.critical_blockers?.length > 0 && (
-          <span className="chip chip-red">{skillGaps.critical_blockers.length} blockers</span>
+          <Badge variant="destructive">{skillGaps.critical_blockers.length} Blockers</Badge>
         )}
-      </div>
-      <div className="section-body-flush">
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Skill</th>
-                <th>Priority</th>
-                <th>Why it matters</th>
-                <th>Est. time</th>
-              </tr>
-            </thead>
-            <tbody>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Skill</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Why it matters</TableHead>
+                <TableHead>Est. time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {all.map((g, i) => (
-                <tr key={i}>
-                  <td style={{fontWeight:500}}>{g.skill}</td>
-                  <td>
-                    <span className={`priority priority-${g.priority}`}>{g.priority}</span>
-                  </td>
-                  <td className="td-muted">{g.reason}</td>
-                  <td className="td-muted">{g.estimated_learning_time || '—'}</td>
-                </tr>
+                <TableRow key={i}>
+                  <TableCell className="font-medium">{g.skill}</TableCell>
+                  <TableCell>
+                    <Badge variant={g.priority === 'High' ? 'destructive' : g.priority === 'Medium' ? 'secondary' : 'outline'}>
+                      {g.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{g.reason}</TableCell>
+                  <TableCell className="text-muted-foreground">{g.estimated_learning_time || '—'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </div>
-      {skillGaps.overall_gap_summary && (
-        <div className="section-body" style={{borderTop:'1px solid var(--border)'}}>
-          <p style={{fontSize:13,color:'var(--text-2)',lineHeight:1.6}}>{skillGaps.overall_gap_summary}</p>
-        </div>
-      )}
-    </section>
+        {skillGaps.overall_gap_summary && (
+          <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+            {skillGaps.overall_gap_summary}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
