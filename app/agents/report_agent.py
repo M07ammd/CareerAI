@@ -17,7 +17,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
 from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
-from app.schemas.models import FinalReport, WorkflowStep
+from app.schemas.models import FinalReport, WorkflowStep, CVBulletRewrite
 from app.tools.file_writer import save_analysis_json, save_report_markdown
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,9 @@ class ReportSummary(BaseModel):
     executive_summary: str = Field(description="3-5 sentence executive summary")
     score_interpretation: str = Field(description="What the score means and what it implies")
     hiring_probability: str = Field(description="Estimated likelihood of success: Low / Medium / High")
+    cv_bullet_rewrites: list[CVBulletRewrite] = Field(
+        default_factory=list, description="Suggested rewrites for 2-3 CV bullets to better align with the job"
+    )
 
 SYSTEM_PROMPT = f"""You are a Senior Career Intelligence Analyst.
 {ANTI_INJECTION_INSTRUCTION}
@@ -35,6 +38,7 @@ Provide:
 1. Executive Summary (3-5 sentences covering key findings)
 2. Score interpretation (what the match score means for this candidate)
 3. Hiring probability assessment (Low / Medium / High) with justification
+4. CV Bullet Rewrites (2-3 suggestions improving existing bullet points by adding missing skills or metrics)
 """
 
 def _build_markdown(state: CareerPilotState, summary: ReportSummary) -> str:
@@ -72,6 +76,20 @@ def _build_markdown(state: CareerPilotState, summary: ReportSummary) -> str:
             md += f"- **{a.title}**: {a.description}\n"
         md += "\n"
         
+    if sm and sm.evidence_grounded_justification:
+        md += "## Score Justification (Evidence-Grounded)\n"
+        for ev in sm.evidence_grounded_justification:
+            md += f"- {ev}\n"
+        md += "\n"
+        
+    if summary.cv_bullet_rewrites:
+        md += "## CV Bullet Rewrite Suggestions\n"
+        for rewrite in summary.cv_bullet_rewrites:
+            md += f"**Original**: *{rewrite.original_bullet}*\n\n"
+            md += f"**Suggested**: {rewrite.suggested_bullet}\n\n"
+            md += f"**Reasoning**: {rewrite.reasoning}\n\n"
+        md += "\n"
+        
     return md
 
 
@@ -82,7 +100,9 @@ async def report_agent(state: CareerPilotState) -> dict:
     
     # We only need to send the high-level stats to the LLM to write the summary
     context = {}
-    if ra := state.get("resume_analysis"): context["candidate"] = ra.summary
+    if ra := state.get("resume_analysis"):
+        context["candidate"] = ra.summary
+        context["experience"] = [e.model_dump() for e in ra.experience]
     if ja := state.get("job_analysis"): context["job"] = ja.job_title
     if sm := state.get("skill_match"): context["score"] = sm.match_score
     
@@ -124,7 +144,8 @@ async def report_agent(state: CareerPilotState) -> dict:
             top_recommendations=top_recs,
             hiring_probability=summary_result.hiring_probability,
             next_steps=next_steps,
-            full_report_markdown=md
+            full_report_markdown=md,
+            cv_bullet_rewrites=summary_result.cv_bullet_rewrites
         )
 
         try:

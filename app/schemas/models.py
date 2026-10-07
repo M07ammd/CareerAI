@@ -140,6 +140,9 @@ class SkillMatch(BaseModel):
     weaknesses: List[str] = Field(
         default_factory=list, description="Areas where the candidate falls short"
     )
+    evidence_grounded_justification: List[str] = Field(
+        default_factory=list, description="Specific evidence from the resume that justifies the score"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +241,12 @@ class CareerRoadmap(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class CVBulletRewrite(BaseModel):
+    original_bullet: str = Field(description="The original bullet point from the resume")
+    suggested_bullet: str = Field(description="The rewritten bullet point incorporating missing keywords or better metrics")
+    reasoning: str = Field(description="Why this rewrite makes the candidate a better fit for the job")
+
+
 class FinalReport(BaseModel):
     candidate_name: Optional[str] = Field(default=None)
     job_title: str = Field(description="Job title being applied for")
@@ -258,6 +267,8 @@ class FinalReport(BaseModel):
     full_report_markdown: str = Field(
         description="Complete professional report in Markdown format"
     )
+    cv_bullet_rewrites: List[CVBulletRewrite] = Field(default_factory=list, description="Suggested rewrites for CV bullets")
+
 
 
 # ---------------------------------------------------------------------------

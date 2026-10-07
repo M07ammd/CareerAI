@@ -31,6 +31,7 @@ Guidelines:
 - The match_score (0–100) should reflect: how many required skills are met, depth of experience,
   and overall fit for the role.
 - Be specific in your explanations — reference actual skills and experience from the CV.
+- Provide an `evidence_grounded_justification` with direct quotes or facts from the CV supporting the score.
 - Do NOT inflate the score. Be honest and calibrated.
 """
 

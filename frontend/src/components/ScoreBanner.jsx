@@ -68,6 +68,29 @@ export default function ScoreBanner({ result }) {
             </span>
           )}
         </div>
+        
+        {/* Evidence Grounded Justification Panel */}
+        {skillMatch?.evidence_grounded_justification?.length > 0 && (
+          <div style={{
+            marginTop: 16,
+            padding: '12px 16px',
+            background: 'var(--bg-secondary)',
+            borderLeft: '4px solid var(--accent-primary)',
+            borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+          }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              🔎 Evidence-Grounded Justification
+            </p>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {skillMatch.evidence_grounded_justification.map((ev, i) => (
+                <li key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', paddingLeft: 16, position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: 'var(--accent-primary)' }}>•</span>
+                  {ev}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

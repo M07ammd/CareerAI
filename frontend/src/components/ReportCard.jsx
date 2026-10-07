@@ -111,6 +111,40 @@ export default function ReportCard({ finalReport }) {
         </div>
       )}
 
+      {/* CV Bullet Rewrites */}
+      {finalReport.cv_bullet_rewrites?.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            ✨ CV Bullet Rewrite Suggestions
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {finalReport.cv_bullet_rewrites.map((rewrite, i) => (
+              <div key={i} style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid rgba(99,102,241,0.2)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--red)', textTransform: 'uppercase', marginRight: 8 }}>Original</span>
+                  <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{rewrite.original_bullet}</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)', textTransform: 'uppercase', marginRight: 8 }}>Suggested</span>
+                  <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{rewrite.suggested_bullet}</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>
+                  💡 {rewrite.reasoning}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Full Report Toggle — safe markdown via react-markdown + rehype-sanitize */}
       {finalReport.full_report_markdown && (
         <>
