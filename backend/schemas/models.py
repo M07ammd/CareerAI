@@ -266,11 +266,11 @@ class FinalReport(BaseModel):
 
 
 class AnalysisRequest(BaseModel):
-    job_description: str = Field(min_length=50, description="The full job description text")
+    job_description: str = Field(min_length=50, max_length=15_000, description="The full job description text")
 
 
 class AnalysisResponse(BaseModel):
-    status: str = Field(description="'success' or 'error'")
+    status: str = Field(description="'success', 'partial', or 'error'")
     resume_analysis: Optional[ResumeAnalysis] = None
     job_analysis: Optional[JobAnalysis] = None
     skill_match: Optional[SkillMatch] = None
@@ -279,9 +279,8 @@ class AnalysisResponse(BaseModel):
     career_roadmap: Optional[CareerRoadmap] = None
     final_report: Optional[FinalReport] = None
     error_message: Optional[str] = None
-    processing_steps: List[str] = Field(
-        default_factory=list, description="Steps completed during processing"
-    )
+    warnings: List[str] = Field(default_factory=list, description="Warnings for failed optional sections")
+    processing_steps: List[str] = Field(default_factory=list, description="Steps completed during processing")
 
 
 class HealthResponse(BaseModel):

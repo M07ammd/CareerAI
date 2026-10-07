@@ -6,20 +6,47 @@ FastAPI router with all HTTP endpoints.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from config import get_settings
-from schemas.models import AnalysisResponse, AnalysisRequest, HealthResponse
+from main import _check_api_key, limiter
+from schemas.models import AnalysisResponse, HealthResponse
 from services.analysis_service import run_analysis
 from tools.pdf_parser import extract_text_from_pdf
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _request_id(request: Request) -> str:
+    """Extract request ID set by RequestIdMiddleware."""
+    return request.scope.get("extensions", {}).get("request_id", str(uuid.uuid4()))
+
+
+def _safe_error(request: Request, exc: Exception, public_msg: str) -> HTTPException:
+    """
+    Log the full exception server-side and return an HTTPException that contains
+    only a generic message + request ID (never the raw exception text).
+    """
+    req_id = _request_id(request)
+    logger.exception("[%s] %s: %s", req_id, public_msg, exc)
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail={"message": public_msg, "request_id": req_id},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -35,11 +62,11 @@ router = APIRouter()
 )
 async def health_check() -> HealthResponse:
     """Return service health status and configuration info."""
-    settings = get_settings()
+    s = get_settings()
     return HealthResponse(
         status="ok",
-        version=settings.version,
-        llm_provider=settings.llm_provider,
+        version=s.version,
+        llm_provider=s.llm_provider,
     )
 
 
@@ -52,28 +79,34 @@ async def health_check() -> HealthResponse:
     "/analyze",
     response_model=AnalysisResponse,
     summary="Run career analysis",
-    description=(
-        "Upload a CV/resume PDF and provide a job description to get a complete "
-        "AI-powered career analysis including skill matching, gap analysis, "
-        "interview questions, and a personalised roadmap."
-    ),
     tags=["Analysis"],
 )
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
 async def analyze_career(
+    request: Request,
     cv_file: Annotated[UploadFile, File(description="Resume/CV in PDF format")],
     job_description: Annotated[
         str,
-        Form(description="Full text of the job description", min_length=50),
+        # Single source of truth: FastAPI validates min/max here.
+        # We do NOT duplicate this check in code below.
+        Form(
+            description="Full text of the job description",
+            min_length=50,
+            max_length=settings.max_jd_chars,
+        ),
     ],
+    _auth: None = Depends(_check_api_key),
 ) -> AnalysisResponse:
     """
     Main analysis endpoint.
 
     Accepts a multipart/form-data request with:
-    - cv_file: PDF file
-    - job_description: text form field
+    - cv_file: PDF file (≤ MAX_PDF_SIZE_MB)
+    - job_description: text (50 – MAX_JD_CHARS characters)
     """
-    settings = get_settings()
+    req_id = _request_id(request)
+    s = get_settings()
+    max_bytes = s.max_pdf_size_mb * 1024 * 1024
 
     # ---- Validate file type ------------------------------------------------
     if not cv_file.filename or not cv_file.filename.lower().endswith(".pdf"):
@@ -82,14 +115,27 @@ async def analyze_career(
             detail="Only PDF files are supported. Please upload a .pdf file.",
         )
 
-    # ---- Validate file size ------------------------------------------------
-    content = await cv_file.read()
-    max_size = settings.max_pdf_size_mb * 1024 * 1024
-    if len(content) > max_size:
+    # ---- Early size check via Content-Length header -----------------------
+    # Reject before reading the body if the client declared a size.
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > max_bytes + 4096:  # +4096 for form overhead
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"PDF file exceeds maximum size of {settings.max_pdf_size_mb}MB.",
+            detail=f"PDF file exceeds maximum size of {s.max_pdf_size_mb}MB.",
         )
+
+    # ---- Read upload in chunks with hard cap --------------------------------
+    chunks = []
+    total = 0
+    async for chunk in cv_file:
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"PDF file exceeds maximum size of {s.max_pdf_size_mb}MB.",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
 
     if len(content) == 0:
         raise HTTPException(
@@ -97,32 +143,38 @@ async def analyze_career(
             detail="Uploaded file is empty.",
         )
 
-    # ---- Validate job description -------------------------------------------
-    jd = job_description.strip()
-    if len(jd) < 50:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Job description is too short. Please provide a complete job description.",
-        )
-
-    # ---- Extract text from PDF ---------------------------------------------
-    logger.info("[API] Extracting text from PDF: %s (%d bytes)", cv_file.filename, len(content))
+    # ---- Run PDF parsing off the event loop (CPU-bound) --------------------
+    logger.info("[%s] Extracting text from PDF (%d bytes)", req_id, len(content))
     try:
-        resume_text = extract_text_from_pdf(content, filename=cv_file.filename or "resume.pdf")
+        resume_text = await asyncio.to_thread(
+            extract_text_from_pdf,
+            content,
+            cv_file.filename or "resume.pdf",
+            s.max_pdf_pages,
+            s.max_resume_chars,
+        )
     except ValueError as exc:
+        # Known validation errors (not a PDF, no text, etc.) — safe to surface
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         )
 
     # ---- Run the analysis pipeline -----------------------------------------
-    logger.info("[API] Starting analysis pipeline")
-    result = await run_analysis(resume_text=resume_text, job_description=jd)
+    logger.info("[%s] Starting analysis pipeline. JD: %d chars", req_id, len(job_description))
+    try:
+        result = await run_analysis(
+            resume_text=resume_text,
+            job_description=job_description.strip(),
+            request_id=req_id,
+        )
+    except Exception as exc:
+        _safe_error(request, exc, "Analysis pipeline encountered an unexpected error.")
 
     if result.status == "error":
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result.error_message or "Analysis pipeline failed",
+            detail={"message": result.error_message or "Analysis failed.", "request_id": req_id},
         )
 
     return result

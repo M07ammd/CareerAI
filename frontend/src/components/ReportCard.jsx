@@ -1,58 +1,11 @@
 import { useState } from 'react';
-
-/**
- * Renders Markdown-ish text with basic formatting.
- * We do a simple transform without pulling in a full Markdown library.
- */
-function SimpleMarkdown({ content }) {
-  if (!content) return null;
-
-  const lines = content.split('\n');
-  const elements = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    if (line.startsWith('# ')) {
-      elements.push(<h1 key={i}>{line.slice(2)}</h1>);
-    } else if (line.startsWith('## ')) {
-      elements.push(<h2 key={i}>{line.slice(3)}</h2>);
-    } else if (line.startsWith('### ')) {
-      elements.push(<h3 key={i}>{line.slice(4)}</h3>);
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      const items = [];
-      while (i < lines.length && (lines[i].startsWith('- ') || lines[i].startsWith('* '))) {
-        items.push(<li key={i}>{lines[i].slice(2)}</li>);
-        i++;
-      }
-      elements.push(<ul key={`ul-${i}`}>{items}</ul>);
-      continue;
-    } else if (line.match(/^\d+\. /)) {
-      const items = [];
-      while (i < lines.length && lines[i].match(/^\d+\. /)) {
-        items.push(<li key={i}>{lines[i].replace(/^\d+\. /, '')}</li>);
-        i++;
-      }
-      elements.push(<ol key={`ol-${i}`}>{items}</ol>);
-      continue;
-    } else if (line.trim() === '') {
-      elements.push(<br key={i} />);
-    } else {
-      // Bold text
-      const rendered = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      elements.push(
-        <p key={i} dangerouslySetInnerHTML={{ __html: rendered }} />
-      );
-    }
-    i++;
-  }
-
-  return <div className="report-markdown">{elements}</div>;
-}
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 /**
  * Final report card with expandable Markdown content.
+ * Uses react-markdown + rehype-sanitize to safely render LLM-generated markdown
+ * without dangerouslySetInnerHTML (XSS prevention).
  */
 export default function ReportCard({ finalReport }) {
   const [expanded, setExpanded] = useState(false);
@@ -66,7 +19,7 @@ export default function ReportCard({ finalReport }) {
         <div>
           <div className="card-title">Final Career Report</div>
           <div className="card-subtitle">
-            Comprehensive analysis — {finalReport.hiring_probability} hiring probability
+            Comprehensive analysis — {finalReport.hiring_probability} fit
           </div>
         </div>
       </div>
@@ -158,7 +111,7 @@ export default function ReportCard({ finalReport }) {
         </div>
       )}
 
-      {/* Full Report Toggle */}
+      {/* Full Report Toggle — safe markdown via react-markdown + rehype-sanitize */}
       {finalReport.full_report_markdown && (
         <>
           <button
@@ -190,8 +143,13 @@ export default function ReportCard({ finalReport }) {
               background: 'var(--bg-secondary)',
               borderRadius: 'var(--radius)',
               border: '1px solid var(--border)',
-            }}>
-              <SimpleMarkdown content={finalReport.full_report_markdown} />
+            }}
+              className="report-markdown"
+            >
+              {/* rehypeSanitize strips any injected HTML from LLM output */}
+              <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
+                {finalReport.full_report_markdown}
+              </ReactMarkdown>
             </div>
           )}
         </>

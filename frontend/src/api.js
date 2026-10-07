@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Use relative URL by default so the Vite dev proxy (vite.config.js) and the
+// production nginx proxy both work without hardcoding a hostname.
+// Override at build time with VITE_API_URL only when deploying to a separate domain.
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Run the full career analysis.

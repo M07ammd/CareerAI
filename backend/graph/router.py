@@ -8,13 +8,11 @@ from __future__ import annotations
 
 import logging
 
+from config import get_settings
 from graph.state import CareerPilotState
 from schemas.models import WorkflowStep
 
 logger = logging.getLogger(__name__)
-
-# Maximum retries per agent before we abort
-MAX_RETRIES = 2
 
 
 def determine_next_step(state: CareerPilotState) -> str:
@@ -49,6 +47,9 @@ def supervisor_router(state: CareerPilotState) -> str:
     errors = state.get("errors", [])
     retry_counts = state.get("retry_counts", {})
 
+    settings = get_settings()
+    max_retries = settings.max_agent_retries
+
     # Check for too many errors on the intended next step
     if errors:
         last_error = errors[-1]
@@ -66,7 +67,7 @@ def supervisor_router(state: CareerPilotState) -> str:
         
         if step_enum and last_error.get("step") == step_enum:
             retries = retry_counts.get(step_enum, 0)
-            if retries >= MAX_RETRIES:
+            if retries >= max_retries:
                 logger.warning(
                     "[Supervisor] Step %s failed %d times. Aborting workflow.",
                     next_node, retries
@@ -74,7 +75,7 @@ def supervisor_router(state: CareerPilotState) -> str:
                 return "__end__"
             logger.info(
                 "[Supervisor] Step %s failed. Will retry (attempt %d/%d).",
-                next_node, retries + 1, MAX_RETRIES
+                next_node, retries + 1, max_retries
             )
 
     logger.info("[Supervisor] Routing to → %s", next_node)
