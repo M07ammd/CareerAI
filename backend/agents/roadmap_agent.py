@@ -1,0 +1,158 @@
+"""
+CareerPilot AI - Career Roadmap Agent
+
+Creates a practical, actionable learning roadmap to bridge the skill gap
+and maximize the candidate's chances for this and future roles.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from config import get_settings
+from graph.state import CareerPilotState
+from llm import get_structured_llm
+from schemas.models import CareerRoadmap, WorkflowStep
+from tools.web_search import web_search
+
+logger = logging.getLogger(__name__)
+
+SYSTEM_PROMPT = """You are a Senior Career Strategist and Learning Path Designer.
+
+Your task is to create a practical, actionable career roadmap for the candidate.
+
+The roadmap has three horizons:
+1. Immediate actions (0–2 weeks): Quick wins, profile updates, application prep.
+2. Short-term goals (1–3 months): Skill building to address high-priority gaps.
+3. Long-term goals (3–12 months): Deep expertise, projects, career positioning.
+
+For each milestone:
+- Provide concrete, numbered action items.
+- List SPECIFIC learning resources (real course names, documentation, GitHub repos).
+- Set measurable success metrics.
+- Be realistic about time estimates.
+
+Also recommend:
+- 2-3 portfolio projects that would demonstrate the required skills.
+- Certifications that are valued for this type of role.
+- A narrative about where this career path leads.
+
+Incorporate the web search results to suggest current, relevant resources.
+Be specific — not generic. Reference the actual gaps and the actual role.
+"""
+
+
+def roadmap_agent(state: CareerPilotState) -> dict:
+    """
+    Generate a personalised career roadmap.
+
+    Args:
+        state: Must contain skill_gaps and job_analysis; optionally resume_analysis.
+
+    Returns:
+        Partial state update with career_roadmap populated.
+    """
+    logger.info("[RoadmapAgent] Building career roadmap")
+
+    skill_gaps = state.get("skill_gaps")
+    job_analysis = state.get("job_analysis")
+    resume_analysis = state.get("resume_analysis")
+    skill_match = state.get("skill_match")
+
+    if not skill_gaps or not job_analysis:
+        return {
+            "errors": [
+                {
+                    "step": WorkflowStep.ROADMAP_AGENT,
+                    "error": "Missing skill_gaps or job_analysis.",
+                    "retry_count": 0,
+                }
+            ],
+            "processing_log": ["RoadmapAgent FAILED: missing prerequisite data"],
+            "next_step": WorkflowStep.END,
+        }
+
+    # Targeted web searches for learning paths
+    web_snippets: list[str] = []
+    settings = get_settings()
+    if settings.web_search_enabled:
+        queries = [
+            f"best {job_analysis.job_title} learning roadmap 2024",
+            f"top certifications for {job_analysis.domain} engineers 2024",
+        ]
+        if skill_gaps.high_priority_gaps:
+            top_skill = skill_gaps.high_priority_gaps[0].skill
+            queries.append(f"best online course for {top_skill} 2024")
+
+        for q in queries:
+            results = web_search(q, max_results=3)
+            web_snippets.extend(results)
+
+    context_parts = [
+        f"=== ROLE TARGET ===\nTitle: {job_analysis.job_title}\nDomain: {job_analysis.domain}",
+        f"=== SKILL GAPS ===\n{json.dumps(skill_gaps.model_dump(), indent=2)}",
+    ]
+    if skill_match:
+        context_parts.append(
+            f"=== CURRENT MATCH SCORE ===\n{skill_match.match_score}/100\n"
+            f"Strengths: {skill_match.strengths}"
+        )
+    if resume_analysis:
+        context_parts.append(
+            f"=== CANDIDATE BACKGROUND ===\n"
+            f"Experience: {resume_analysis.total_experience_years} years\n"
+            f"Current skills: {resume_analysis.technical_skills[:20]}"
+        )
+    if web_snippets:
+        context_parts.append(
+            "=== WEB SEARCH RESULTS (use for resource suggestions) ===\n"
+            + "\n".join(f"• {s}" for s in web_snippets[:12])
+        )
+
+    llm = get_structured_llm(CareerRoadmap)
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content="\n\n".join(context_parts)),
+    ]
+
+    try:
+        result: CareerRoadmap = llm.invoke(messages)
+        total_milestones = (
+            len(result.immediate_actions)
+            + len(result.short_term_goals)
+            + len(result.long_term_goals)
+        )
+        logger.info(
+            "[RoadmapAgent] Done. Milestones: %d | Projects: %d | Certs: %d",
+            total_milestones,
+            len(result.recommended_projects),
+            len(result.recommended_certifications),
+        )
+        return {
+            "career_roadmap": result,
+            "web_search_results": web_snippets,
+            "completed_steps": [WorkflowStep.ROADMAP_AGENT],
+            "processing_log": [
+                f"RoadmapAgent completed. Created {total_milestones} milestones."
+            ],
+            "next_step": WorkflowStep.REPORT_AGENT,
+        }
+
+    except Exception as exc:
+        logger.exception("[RoadmapAgent] LLM call failed: %s", exc)
+        return {
+            "errors": [
+                {
+                    "step": WorkflowStep.ROADMAP_AGENT,
+                    "error": str(exc),
+                    "retry_count": state.get("retry_counts", {}).get(
+                        WorkflowStep.ROADMAP_AGENT, 0
+                    ),
+                }
+            ],
+            "processing_log": [f"RoadmapAgent FAILED: {exc}"],
+            "next_step": WorkflowStep.END,
+        }

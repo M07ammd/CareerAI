@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Data (keep structure, ignore content)
+data/reports/*.md
+data/reports/*.json
+!data/reports/.gitkeep
+!data/samples/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Misc
+*.bak
+*.tmp
