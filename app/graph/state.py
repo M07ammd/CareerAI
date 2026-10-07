@@ -50,11 +50,9 @@ class CareerPilotState(TypedDict):
     # ---- Workflow control --------------------------------------------------
     current_step: WorkflowStep              # Which step is currently active
     completed_steps: Annotated[List[str], operator.add]   # Accumulate completed steps
-    next_step: Optional[WorkflowStep]       # Supervisor sets this
 
     # ---- Error / retry tracking --------------------------------------------
     errors: Annotated[List[AgentError], operator.add]
-    retry_counts: dict                      # Maps step name -> retry count
 
     # ---- Metadata ----------------------------------------------------------
     web_search_results: Annotated[List[str], operator.add]  # Accumulated search snippets
@@ -76,9 +74,7 @@ def get_initial_state(resume_text: str, job_description: str) -> CareerPilotStat
         final_report=None,
         current_step=WorkflowStep.RESUME_AGENT,
         completed_steps=[],
-        next_step=WorkflowStep.RESUME_AGENT,
         errors=[],
-        retry_counts={},
         web_search_results=[],
         processing_log=["Workflow started"],
     )

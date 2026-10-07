@@ -110,3 +110,50 @@ async def run_analysis(
         warnings=warnings,
         processing_steps=completed,
     )
+
+
+async def run_analysis_stream(
+    resume_text: str,
+    job_description: str,
+    request_id: str = "unknown",
+):
+    """
+    Run the full CareerPilot AI analysis pipeline and yield SSE events.
+    """
+    logger.info(
+        "[%s] Starting streaming analysis. Resume: %d chars | JD: %d chars",
+        request_id, len(resume_text), len(job_description),
+    )
+
+    initial_state = get_initial_state(
+        resume_text=resume_text,
+        job_description=job_description,
+    )
+
+    graph = get_graph()
+    
+    import json
+    
+    try:
+        async for chunk in graph.astream(initial_state, stream_mode="updates"):
+            # chunk is a dict like {"resume_agent": {"resume_analysis": ...}}
+            for node_name, updates in chunk.items():
+                event_data = {
+                    "node": node_name,
+                    "status": "completed",
+                }
+                # Check for errors in this node
+                if "errors" in updates and updates["errors"]:
+                    event_data["status"] = "error"
+                    event_data["error"] = updates["errors"][-1].get("error", "Unknown error")
+                
+                # yield SSE format
+                yield f"data: {json.dumps(event_data)}\n\n"
+        
+        # After completion, we could yield a final "done" event
+        yield f"data: {json.dumps({'node': 'workflow', 'status': 'done'})}\n\n"
+        
+    except Exception as exc:
+        logger.exception("[%s] Graph execution crashed: %s", request_id, exc)
+        yield f"data: {json.dumps({'node': 'workflow', 'status': 'error', 'error': 'Internal error'})}\n\n"
+

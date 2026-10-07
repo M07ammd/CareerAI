@@ -12,6 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import JobAnalysis, WorkflowStep
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ Guidelines:
 """
 
 
-def job_agent(state: CareerPilotState) -> dict:
+async def job_agent(state: CareerPilotState) -> dict:
     """
     Analyze the job description and extract structured requirements.
 
@@ -49,27 +50,22 @@ def job_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.JOB_AGENT,
-                    "error": "Job description is empty or too short to analyze.",
-                    "retry_count": 0,
-                }
+                    "error": "Job description is empty or too short to analyze."}
             ],
-            "processing_log": ["JobAgent FAILED: empty job description"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": ["JobAgent FAILED: empty job description"]}
 
     llm = get_structured_llm(JobAnalysis)
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(
             content=(
-                "Please analyze the following job description:\n\n"
-                f"---JOB DESCRIPTION START---\n{job_description}\n---JOB DESCRIPTION END---"
+                f"Please analyze the following job description and extract all structured information:\n\n{wrap_user_content('JOB DESCRIPTION', job_description)}"
             )
         ),
     ]
 
     try:
-        result: JobAnalysis = llm.invoke(messages)
+        result: JobAnalysis = await llm.ainvoke(messages)
         logger.info(
             "[JobAgent] Done. Title: %s | Required skills: %d | Technologies: %d",
             result.job_title,
@@ -82,9 +78,7 @@ def job_agent(state: CareerPilotState) -> dict:
             "processing_log": [
                 f"JobAgent completed. Role: {result.job_title} | "
                 f"Required skills: {len(result.required_skills)}"
-            ],
-            "next_step": WorkflowStep.SKILL_AGENT,
-        }
+            ]}
 
     except Exception as exc:
         logger.exception("[JobAgent] LLM call failed: %s", exc)
@@ -92,12 +86,7 @@ def job_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.JOB_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.JOB_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"JobAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": [f"JobAgent FAILED: {exc}"]}

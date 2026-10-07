@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.pregel import RetryPolicy
 
 from app.agents.gap_agent import gap_agent
 from app.agents.interview_agent import interview_agent
@@ -17,7 +18,7 @@ from app.agents.report_agent import report_agent
 from app.agents.resume_agent import resume_agent
 from app.agents.roadmap_agent import roadmap_agent
 from app.agents.skill_agent import skill_agent
-from app.graph.router import supervisor_node, supervisor_router
+from app.config import get_settings
 from app.graph.state import CareerPilotState
 
 logger = logging.getLogger(__name__)
@@ -29,68 +30,48 @@ def build_graph():
 
     Workflow:
         START
-          ↓
-        resume_agent   ──→  supervisor  ──→  job_agent
-                                             ↓
-                                          supervisor  ──→  skill_agent
-                                                           ↓
-                                                        supervisor  ──→  gap_agent
-                                                                         ↓
-                                                                      supervisor  ──→  interview_agent
-                                                                                       ↓
-                                                                                    supervisor  ──→  roadmap_agent
-                                                                                                     ↓
-                                                                                                  supervisor  ──→  report_agent
-                                                                                                                   ↓
-                                                                                                                  END
-
-    Each agent sets state.next_step; the supervisor reads this to decide routing.
-    The supervisor also handles retries via state.retry_counts.
+        ├──→ resume_agent ──┐
+        └──→ job_agent    ──┴──→ skill_agent ──→ gap_agent ──┬──→ interview_agent ──┐
+                                                             └──→ roadmap_agent   ──┴──→ report_agent ──→ END
     """
+    settings = get_settings()
     builder = StateGraph(CareerPilotState)
 
-    # ---- Register nodes ---------------------------------------------------
-    builder.add_node("resume_agent", resume_agent)
-    builder.add_node("job_agent", job_agent)
-    builder.add_node("skill_agent", skill_agent)
-    builder.add_node("gap_agent", gap_agent)
-    builder.add_node("interview_agent", interview_agent)
-    builder.add_node("roadmap_agent", roadmap_agent)
-    builder.add_node("report_agent", report_agent)
-    builder.add_node("supervisor", supervisor_node)
-
-    # ---- Entry point -------------------------------------------------------
-    builder.add_edge(START, "resume_agent")
-
-    # ---- Agent → Supervisor edges ------------------------------------------
-    # After each agent runs, control passes to the supervisor
-    for agent_node in [
-        "resume_agent",
-        "job_agent",
-        "skill_agent",
-        "gap_agent",
-        "interview_agent",
-        "roadmap_agent",
-        "report_agent",
-    ]:
-        builder.add_edge(agent_node, "supervisor")
-
-    # ---- Supervisor conditional routing -----------------------------------
-    # The supervisor inspects state.next_step and routes accordingly
-    builder.add_conditional_edges(
-        "supervisor",
-        supervisor_router,
-        {
-            "resume_agent": "resume_agent",
-            "job_agent": "job_agent",
-            "skill_agent": "skill_agent",
-            "gap_agent": "gap_agent",
-            "interview_agent": "interview_agent",
-            "roadmap_agent": "roadmap_agent",
-            "report_agent": "report_agent",
-            "__end__": END,
-        },
+    # Retry policy: max_attempts is retries + 1 (initial attempt)
+    retry = RetryPolicy(
+        initial_interval=1.0, 
+        backoff_factor=2.0, 
+        max_interval=10.0, 
+        max_attempts=settings.max_agent_retries + 1,
+        jitter=True
     )
+
+    # ---- Register nodes ---------------------------------------------------
+    builder.add_node("resume_agent", resume_agent, retry=retry)
+    builder.add_node("job_agent", job_agent, retry=retry)
+    builder.add_node("skill_agent", skill_agent, retry=retry)
+    builder.add_node("gap_agent", gap_agent, retry=retry)
+    builder.add_node("interview_agent", interview_agent, retry=retry)
+    builder.add_node("roadmap_agent", roadmap_agent, retry=retry)
+    builder.add_node("report_agent", report_agent, retry=retry)
+
+    # ---- Graph Edges -------------------------------------------------------
+    builder.add_edge(START, "resume_agent")
+    builder.add_edge(START, "job_agent")
+
+    # Fan-in: wait for both resume and job analysis before skill matching
+    builder.add_edge(["resume_agent", "job_agent"], "skill_agent")
+
+    builder.add_edge("skill_agent", "gap_agent")
+
+    # Fan-out: interview prep and roadmap can be built in parallel from gap analysis
+    builder.add_edge("gap_agent", "interview_agent")
+    builder.add_edge("gap_agent", "roadmap_agent")
+
+    # Fan-in: wait for both before generating the final report
+    builder.add_edge(["interview_agent", "roadmap_agent"], "report_agent")
+
+    builder.add_edge("report_agent", END)
 
     graph = builder.compile()
     logger.info("[Graph] CareerPilot workflow compiled successfully")

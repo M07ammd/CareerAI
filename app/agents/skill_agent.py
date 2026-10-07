@@ -14,6 +14,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import SkillMatch, WorkflowStep
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ Guidelines:
 """
 
 
-def skill_agent(state: CareerPilotState) -> dict:
+async def skill_agent(state: CareerPilotState) -> dict:
     """
     Match candidate skills against job requirements.
 
@@ -55,13 +56,9 @@ def skill_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.SKILL_AGENT,
-                    "error": "Missing resume_analysis or job_analysis.",
-                    "retry_count": 0,
-                }
+                    "error": "Missing resume_analysis or job_analysis."}
             ],
-            "processing_log": ["SkillAgent FAILED: missing prerequisite data"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": ["SkillAgent FAILED: missing prerequisite data"]}
 
     resume_summary = json.dumps(resume_analysis.model_dump(), indent=2)
     job_summary = json.dumps(job_analysis.model_dump(), indent=2)
@@ -79,9 +76,18 @@ def skill_agent(state: CareerPilotState) -> dict:
     ]
 
     try:
-        result: SkillMatch = llm.invoke(messages)
+        result: SkillMatch = await llm.ainvoke(messages)
+        
+        # Deterministic scoring
+        total_skills = len(result.matched_skills) + len(result.missing_skills) + len(result.partially_matched_skills)
+        if total_skills == 0:
+            result.match_score = 0
+        else:
+            base_score = (len(result.matched_skills) * 1.0 + len(result.partially_matched_skills) * 0.5) / total_skills
+            result.match_score = int(base_score * 100)
+            
         logger.info(
-            "[SkillAgent] Done. Score: %.1f | Matched: %d | Missing: %d",
+            "[SkillAgent] Done. Score: %d | Matched: %d | Missing: %d",
             result.match_score,
             len(result.matched_skills),
             len(result.missing_skills),
@@ -92,9 +98,7 @@ def skill_agent(state: CareerPilotState) -> dict:
             "processing_log": [
                 f"SkillAgent completed. Match score: {result.match_score:.1f}/100. "
                 f"Matched: {len(result.matched_skills)}, Missing: {len(result.missing_skills)}"
-            ],
-            "next_step": WorkflowStep.GAP_AGENT,
-        }
+            ]}
 
     except Exception as exc:
         logger.exception("[SkillAgent] LLM call failed: %s", exc)
@@ -102,12 +106,7 @@ def skill_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.SKILL_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.SKILL_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"SkillAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": [f"SkillAgent FAILED: {exc}"]}

@@ -15,6 +15,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.config import get_settings
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import CareerRoadmap, WorkflowStep
 from app.tools.web_search import web_search
 
@@ -45,7 +46,7 @@ Be specific — not generic. Reference the actual gaps and the actual role.
 """
 
 
-def roadmap_agent(state: CareerPilotState) -> dict:
+async def roadmap_agent(state: CareerPilotState) -> dict:
     """
     Generate a personalised career roadmap.
 
@@ -67,13 +68,9 @@ def roadmap_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.ROADMAP_AGENT,
-                    "error": "Missing skill_gaps or job_analysis.",
-                    "retry_count": 0,
-                }
+                    "error": "Missing skill_gaps or job_analysis."}
             ],
-            "processing_log": ["RoadmapAgent FAILED: missing prerequisite data"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": ["RoadmapAgent FAILED: missing prerequisite data"]}
 
     # Targeted web searches for learning paths
     web_snippets: list[str] = []
@@ -119,7 +116,7 @@ def roadmap_agent(state: CareerPilotState) -> dict:
     ]
 
     try:
-        result: CareerRoadmap = llm.invoke(messages)
+        result: CareerRoadmap = await llm.ainvoke(messages)
         total_milestones = (
             len(result.immediate_actions)
             + len(result.short_term_goals)
@@ -137,9 +134,7 @@ def roadmap_agent(state: CareerPilotState) -> dict:
             "completed_steps": [WorkflowStep.ROADMAP_AGENT],
             "processing_log": [
                 f"RoadmapAgent completed. Created {total_milestones} milestones."
-            ],
-            "next_step": WorkflowStep.REPORT_AGENT,
-        }
+            ]}
 
     except Exception as exc:
         logger.exception("[RoadmapAgent] LLM call failed: %s", exc)
@@ -147,12 +142,7 @@ def roadmap_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.ROADMAP_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.ROADMAP_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"RoadmapAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": [f"RoadmapAgent FAILED: {exc}"]}

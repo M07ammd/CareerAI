@@ -14,6 +14,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import InterviewQuestions, WorkflowStep
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ for THIS candidate applying to THIS job.
 """
 
 
-def interview_agent(state: CareerPilotState) -> dict:
+async def interview_agent(state: CareerPilotState) -> dict:
     """
     Generate personalised interview questions.
 
@@ -59,13 +60,9 @@ def interview_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.INTERVIEW_AGENT,
-                    "error": "Missing resume_analysis or job_analysis.",
-                    "retry_count": 0,
-                }
+                    "error": "Missing resume_analysis or job_analysis."}
             ],
-            "processing_log": ["InterviewAgent FAILED: missing prerequisite data"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": ["InterviewAgent FAILED: missing prerequisite data"]}
 
     context_parts = [
         f"=== CANDIDATE PROFILE ===\n{json.dumps(resume_analysis.model_dump(), indent=2)}",
@@ -91,7 +88,7 @@ def interview_agent(state: CareerPilotState) -> dict:
     ]
 
     try:
-        result: InterviewQuestions = llm.invoke(messages)
+        result: InterviewQuestions = await llm.ainvoke(messages)
         total = (
             len(result.technical_questions)
             + len(result.project_questions)
@@ -110,9 +107,7 @@ def interview_agent(state: CareerPilotState) -> dict:
             "completed_steps": [WorkflowStep.INTERVIEW_AGENT],
             "processing_log": [
                 f"InterviewAgent completed. Generated {total} personalised questions."
-            ],
-            "next_step": WorkflowStep.ROADMAP_AGENT,
-        }
+            ]}
 
     except Exception as exc:
         logger.exception("[InterviewAgent] LLM call failed: %s", exc)
@@ -120,12 +115,7 @@ def interview_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.INTERVIEW_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.INTERVIEW_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"InterviewAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": [f"InterviewAgent FAILED: {exc}"]}

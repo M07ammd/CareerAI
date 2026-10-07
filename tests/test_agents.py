@@ -3,7 +3,7 @@ Tests for individual agent logic (unit-level, with mocked LLMs).
 """
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
@@ -37,9 +37,10 @@ def make_resume_state(**overrides):
 
 class TestResumeAgent:
     @patch("app.agents.resume_agent.get_structured_llm")
-    def test_successful_extraction(self, mock_get_llm):
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = ResumeAnalysis(
+    @pytest.mark.asyncio
+    async def test_successful_extraction(self, mock_get_llm):
+        mock_llm = AsyncMock()
+        mock_llm.ainvoke.return_value = ResumeAnalysis(
             candidate_name="Alice Smith",
             summary="ML Engineer with 4 years experience",
             technical_skills=["Python", "PyTorch", "scikit-learn"],
@@ -50,43 +51,43 @@ class TestResumeAgent:
         from app.agents.resume_agent import resume_agent
 
         state = make_resume_state()
-        result = resume_agent(state)
+        result = await resume_agent(state)
 
         assert "resume_analysis" in result
         assert result["resume_analysis"].candidate_name == "Alice Smith"
-        assert result["next_step"] == WorkflowStep.JOB_AGENT
         assert WorkflowStep.RESUME_AGENT in result["completed_steps"]
 
     @patch("app.agents.resume_agent.get_structured_llm")
-    def test_llm_failure_returns_error(self, mock_get_llm):
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = Exception("LLM timeout")
+    @pytest.mark.asyncio
+    async def test_llm_failure_returns_error(self, mock_get_llm):
+        mock_llm = AsyncMock()
+        mock_llm.ainvoke.side_effect = Exception("LLM timeout")
         mock_get_llm.return_value = mock_llm
 
         from app.agents.resume_agent import resume_agent
 
         state = make_resume_state()
-        result = resume_agent(state)
+        result = await resume_agent(state)
 
         assert "errors" in result
         assert len(result["errors"]) == 1
-        assert result["next_step"] == WorkflowStep.END
 
-    def test_empty_resume_text_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_empty_resume_text_returns_error(self):
         from app.agents.resume_agent import resume_agent
 
         state = get_initial_state(resume_text="", job_description="Valid JD here")
-        result = resume_agent(state)
+        result = await resume_agent(state)
 
         assert "errors" in result
-        assert result["next_step"] == WorkflowStep.END
 
 
 class TestJobAgent:
     @patch("app.agents.job_agent.get_structured_llm")
-    def test_successful_extraction(self, mock_get_llm):
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = JobAnalysis(
+    @pytest.mark.asyncio
+    async def test_successful_extraction(self, mock_get_llm):
+        mock_llm = AsyncMock()
+        mock_llm.ainvoke.return_value = JobAnalysis(
             job_title="Senior ML Engineer",
             required_skills=["Python", "PyTorch"],
             domain="ML Engineering",
@@ -97,27 +98,27 @@ class TestJobAgent:
         from app.agents.job_agent import job_agent
 
         state = make_resume_state()
-        result = job_agent(state)
+        result = await job_agent(state)
 
         assert "job_analysis" in result
         assert result["job_analysis"].job_title == "Senior ML Engineer"
-        assert result["next_step"] == WorkflowStep.SKILL_AGENT
 
-    def test_empty_jd_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_empty_jd_returns_error(self):
         from app.agents.job_agent import job_agent
 
         state = get_initial_state(resume_text="Valid resume", job_description="")
-        result = job_agent(state)
+        result = await job_agent(state)
 
         assert "errors" in result
-        assert result["next_step"] == WorkflowStep.END
 
 
 class TestSkillAgent:
     @patch("app.agents.skill_agent.get_structured_llm")
-    def test_successful_matching(self, mock_get_llm):
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = SkillMatch(
+    @pytest.mark.asyncio
+    async def test_successful_matching(self, mock_get_llm):
+        mock_llm = AsyncMock()
+        mock_llm.ainvoke.return_value = SkillMatch(
             matched_skills=["Python", "PyTorch"],
             missing_skills=["LangGraph"],
             match_score=72.0,
@@ -139,17 +140,16 @@ class TestSkillAgent:
                 seniority_level="Senior",
             ),
         )
-        result = skill_agent(state)
+        result = await skill_agent(state)
 
         assert "skill_match" in result
-        assert result["skill_match"].match_score == 72.0
-        assert result["next_step"] == WorkflowStep.GAP_AGENT
+        assert result["skill_match"].match_score == 66
 
-    def test_missing_prerequisites_returns_error(self):
+    @pytest.mark.asyncio
+    async def test_missing_prerequisites_returns_error(self):
         from app.agents.skill_agent import skill_agent
 
         state = make_resume_state()  # no resume_analysis or job_analysis set
-        result = skill_agent(state)
+        result = await skill_agent(state)
 
         assert "errors" in result
-        assert result["next_step"] == WorkflowStep.END

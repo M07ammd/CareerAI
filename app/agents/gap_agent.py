@@ -15,6 +15,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.config import get_settings
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import SkillGaps, WorkflowStep
 from app.tools.web_search import web_search
 
@@ -42,7 +43,7 @@ Be practical and specific. Reference the actual job requirements and candidate b
 """
 
 
-def gap_agent(state: CareerPilotState) -> dict:
+async def gap_agent(state: CareerPilotState) -> dict:
     """
     Analyse and prioritise skill gaps, with optional web search enrichment.
 
@@ -63,13 +64,9 @@ def gap_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.GAP_AGENT,
-                    "error": "Missing skill_match or job_analysis.",
-                    "retry_count": 0,
-                }
+                    "error": "Missing skill_match or job_analysis."}
             ],
-            "processing_log": ["GapAgent FAILED: missing prerequisite data"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": ["GapAgent FAILED: missing prerequisite data"]}
 
     # Optional web search for learning resources
     web_snippets: list[str] = []
@@ -104,7 +101,7 @@ def gap_agent(state: CareerPilotState) -> dict:
     ]
 
     try:
-        result: SkillGaps = llm.invoke(messages)
+        result: SkillGaps = await llm.ainvoke(messages)
         total_gaps = (
             len(result.high_priority_gaps)
             + len(result.medium_priority_gaps)
@@ -125,9 +122,7 @@ def gap_agent(state: CareerPilotState) -> dict:
                 f"(High: {len(result.high_priority_gaps)}, "
                 f"Medium: {len(result.medium_priority_gaps)}, "
                 f"Low: {len(result.low_priority_gaps)})"
-            ],
-            "next_step": WorkflowStep.INTERVIEW_AGENT,
-        }
+            ]}
 
     except Exception as exc:
         logger.exception("[GapAgent] LLM call failed: %s", exc)
@@ -135,12 +130,7 @@ def gap_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.GAP_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.GAP_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"GapAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": [f"GapAgent FAILED: {exc}"]}

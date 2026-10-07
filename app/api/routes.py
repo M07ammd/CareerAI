@@ -10,12 +10,12 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config import get_settings
 from app.main import _check_api_key, limiter
 from app.schemas.models import AnalysisResponse, HealthResponse
-from app.services.analysis_service import run_analysis
+from app.services.analysis_service import run_analysis, run_analysis_stream
 from app.tools.pdf_parser import extract_text_from_pdf
 
 logger = logging.getLogger(__name__)
@@ -179,3 +179,76 @@ async def analyze_career(
         )
 
     return result
+
+
+@router.post(
+    "/analyze/stream",
+    summary="Run career analysis with SSE streaming",
+    tags=["Analysis"],
+)
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute")
+async def analyze_career_stream(
+    request: Request,
+    cv_file: Annotated[UploadFile, File(description="Resume/CV in PDF format")],
+    job_description: Annotated[
+        str,
+        Form(
+            description="Full text of the job description",
+            min_length=50,
+            max_length=settings.max_jd_chars,
+        ),
+    ],
+    _auth: None = Depends(_check_api_key),
+) -> StreamingResponse:
+    """
+    Streaming analysis endpoint using Server-Sent Events (SSE).
+    """
+    req_id = _request_id(request)
+    s = get_settings()
+    max_bytes = s.max_pdf_size_mb * 1024 * 1024
+
+    if not cv_file.filename or not cv_file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are supported. Please upload a .pdf file.",
+        )
+
+    chunks = []
+    total = 0
+    while True:
+        chunk = await cv_file.read(8192)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"PDF file exceeds maximum size of {s.max_pdf_size_mb}MB.",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
+
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+
+    try:
+        resume_text = await asyncio.to_thread(
+            extract_text_from_pdf,
+            content,
+            cv_file.filename or "resume.pdf",
+            s.max_pdf_pages,
+            s.max_resume_chars,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+
+    return StreamingResponse(
+        run_analysis_stream(resume_text, job_description.strip(), req_id),
+        media_type="text/event-stream"
+    )

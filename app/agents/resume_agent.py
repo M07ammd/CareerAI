@@ -12,6 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import ResumeAnalysis, WorkflowStep
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ Guidelines:
 """
 
 
-def resume_agent(state: CareerPilotState) -> dict:
+async def resume_agent(state: CareerPilotState) -> dict:
     """
     Extract structured information from the candidate's resume.
 
@@ -50,27 +51,22 @@ def resume_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.RESUME_AGENT,
-                    "error": "Resume text is empty or too short to analyze.",
-                    "retry_count": 0,
-                }
+                    "error": "Resume text is empty or too short to analyze."}
             ],
-            "processing_log": ["ResumeAgent FAILED: empty resume text"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": ["ResumeAgent FAILED: empty resume text"]}
 
     llm = get_structured_llm(ResumeAnalysis)
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(
             content=(
-                "Please analyze the following resume and extract all structured information:\n\n"
-                f"---RESUME START---\n{resume_text}\n---RESUME END---"
+                f"Please analyze the following resume and extract all structured information:\n\n{wrap_user_content('RESUME', resume_text)}"
             )
         ),
     ]
 
     try:
-        result: ResumeAnalysis = llm.invoke(messages)
+        result: ResumeAnalysis = await llm.ainvoke(messages)
         logger.info(
             "[ResumeAgent] Done. Candidate: %s | Skills: %d | Experience entries: %d",
             result.candidate_name,
@@ -82,9 +78,7 @@ def resume_agent(state: CareerPilotState) -> dict:
             "completed_steps": [WorkflowStep.RESUME_AGENT],
             "processing_log": [
                 f"ResumeAgent completed. Found {len(result.technical_skills)} technical skills."
-            ],
-            "next_step": WorkflowStep.JOB_AGENT,
-        }
+            ]}
 
     except Exception as exc:
         logger.exception("[ResumeAgent] LLM call failed: %s", exc)
@@ -92,12 +86,7 @@ def resume_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.RESUME_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.RESUME_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"ResumeAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
-        }
+            "processing_log": [f"ResumeAgent FAILED: {exc}"]}

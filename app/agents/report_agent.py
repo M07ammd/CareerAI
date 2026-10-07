@@ -1,7 +1,8 @@
 """
 CareerPilot AI - Report Generator Agent
 
-Combines all agent results into a single, professional final report.
+Combines all agent results into a single, professional final report deterministically.
+Uses the LLM only for a brief narrative summary.
 """
 
 from __future__ import annotations
@@ -9,142 +10,148 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
+from pydantic import BaseModel, Field
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
+from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import FinalReport, WorkflowStep
 from app.tools.file_writer import save_analysis_json, save_report_markdown
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a Senior Career Intelligence Analyst producing a professional career report.
+class ReportSummary(BaseModel):
+    executive_summary: str = Field(description="3-5 sentence executive summary")
+    score_interpretation: str = Field(description="What the score means and what it implies")
+    hiring_probability: str = Field(description="Estimated likelihood of success: Low / Medium / High")
 
-Your task is to synthesize ALL analysis results into one comprehensive, professional final report.
+SYSTEM_PROMPT = f"""You are a Senior Career Intelligence Analyst.
+{ANTI_INJECTION_INSTRUCTION}
+Your task is to synthesize the provided analysis results into a brief, professional summary.
 
-The report must include:
-1. Executive Summary (3-5 sentences covering the key findings)
-2. Match Score interpretation (what the number means for this candidate)
-3. Key strengths (specific, not generic)
-4. Critical gaps (honest assessment)
-5. Top 5 actionable recommendations
-6. Hiring probability assessment (Low / Medium / High) with justification
-7. Immediate next steps
-
-For full_report_markdown, produce a beautifully formatted Markdown document with:
-- Proper headings and sections
-- Tables for skills comparison
-- Bullet points for recommendations
-- A professional tone that is encouraging but honest
-- At least 600 words of meaningful content
-
-The report should feel like it was written by a human senior career coach, not a generic AI.
+Provide:
+1. Executive Summary (3-5 sentences covering key findings)
+2. Score interpretation (what the match score means for this candidate)
+3. Hiring probability assessment (Low / Medium / High) with justification
 """
 
+def _build_markdown(state: CareerPilotState, summary: ReportSummary) -> str:
+    ra = state.get("resume_analysis")
+    ja = state.get("job_analysis")
+    sm = state.get("skill_match")
+    sg = state.get("skill_gaps")
+    cr = state.get("career_roadmap")
+    
+    cand_name = ra.candidate_name if ra and ra.candidate_name else "Candidate"
+    job_title = ja.job_title if ja else "Role"
+    score = sm.match_score if sm else 0
+    
+    md = f"# CareerPilot AI Report: {cand_name} for {job_title}\n\n"
+    md += f"**Date**: {datetime.now().strftime('%B %d, %Y')}\n\n"
+    md += f"## Executive Summary\n{summary.executive_summary}\n\n"
+    md += f"## Match Score: {score}/100\n{summary.score_interpretation}\n\n"
+    md += f"**Hiring Probability**: {summary.hiring_probability}\n\n"
+    
+    if sm and sm.strengths:
+        md += "## Key Strengths\n"
+        for s in sm.strengths:
+            md += f"- {s}\n"
+        md += "\n"
+        
+    if sg and sg.high_priority_gaps:
+        md += "## Critical Gaps\n"
+        for g in sg.high_priority_gaps:
+            md += f"- **{g.skill}**: {g.reason}\n"
+        md += "\n"
+        
+    if cr and cr.immediate_actions:
+        md += "## Immediate Next Steps\n"
+        for a in cr.immediate_actions:
+            md += f"- **{a.title}**: {a.description}\n"
+        md += "\n"
+        
+    return md
 
-def _build_context(state: CareerPilotState) -> str:
-    """Assemble all analysis data into a single context string."""
-    parts = []
 
-    if ra := state.get("resume_analysis"):
-        parts.append(f"=== RESUME ANALYSIS ===\n{json.dumps(ra.model_dump(), indent=2)}")
-
-    if ja := state.get("job_analysis"):
-        parts.append(f"=== JOB ANALYSIS ===\n{json.dumps(ja.model_dump(), indent=2)}")
-
-    if sm := state.get("skill_match"):
-        parts.append(f"=== SKILL MATCH ===\n{json.dumps(sm.model_dump(), indent=2)}")
-
-    if sg := state.get("skill_gaps"):
-        parts.append(f"=== SKILL GAPS ===\n{json.dumps(sg.model_dump(), indent=2)}")
-
-    if iq := state.get("interview_questions"):
-        # Keep concise for the context window
-        q_count = (
-            len(iq.technical_questions)
-            + len(iq.project_questions)
-            + len(iq.behavioral_questions)
-            + len(iq.hr_questions)
-        )
-        parts.append(f"=== INTERVIEW QUESTIONS ===\nTotal generated: {q_count}")
-
-    if cr := state.get("career_roadmap"):
-        milestones = len(cr.immediate_actions) + len(cr.short_term_goals) + len(cr.long_term_goals)
-        parts.append(
-            f"=== CAREER ROADMAP ===\nTotal milestones: {milestones}\n"
-            f"Trajectory: {cr.career_trajectory}"
-        )
-
-    parts.append(f"=== REPORT DATE ===\n{datetime.now().strftime('%B %d, %Y')}")
-    return "\n\n".join(parts)
-
-
-def report_agent(state: CareerPilotState) -> dict:
-    """
-    Generate the final comprehensive report.
-
-    Args:
-        state: Should contain all previous agent outputs.
-
-    Returns:
-        Partial state update with final_report populated.
-    """
+async def report_agent(state: CareerPilotState) -> dict:
     logger.info("[ReportAgent] Generating final report")
 
-    llm = get_structured_llm(FinalReport)
-    context = _build_context(state)
-
+    llm = get_structured_llm(ReportSummary)
+    
+    # We only need to send the high-level stats to the LLM to write the summary
+    context = {}
+    if ra := state.get("resume_analysis"): context["candidate"] = ra.summary
+    if ja := state.get("job_analysis"): context["job"] = ja.job_title
+    if sm := state.get("skill_match"): context["score"] = sm.match_score
+    
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(
-            content=(
-                "Please generate the comprehensive final career report based on "
-                "all the analysis below:\n\n" + context
-            )
-        ),
+        HumanMessage(content=f"Generate the summary based on: {json.dumps(context)}")
     ]
 
     try:
-        result: FinalReport = llm.invoke(messages)
+        summary_result: ReportSummary = await llm.ainvoke(messages)
+        
+        sm = state.get("skill_match")
+        sg = state.get("skill_gaps")
+        cr = state.get("career_roadmap")
+        ra = state.get("resume_analysis")
+        ja = state.get("job_analysis")
+        
+        candidate_name = ra.candidate_name if ra and ra.candidate_name else "Candidate"
+        job_title = ja.job_title if ja else "Role"
+        
+        key_strengths = sm.strengths if sm else []
+        critical_gaps = [g.skill for g in sg.high_priority_gaps] if sg else []
+        next_steps = [a.title for a in cr.immediate_actions] if cr else []
+        top_recs = []
+        if cr:
+            top_recs = [a.title for a in cr.immediate_actions] + [a.title for a in cr.short_term_goals]
+            top_recs = top_recs[:5]
+            
+        md = _build_markdown(state, summary_result)
+        
+        final_report = FinalReport(
+            candidate_name=candidate_name,
+            job_title=job_title,
+            executive_summary=summary_result.executive_summary,
+            match_score=sm.match_score if sm else 0,
+            score_interpretation=summary_result.score_interpretation,
+            key_strengths=key_strengths,
+            critical_gaps=critical_gaps,
+            top_recommendations=top_recs,
+            hiring_probability=summary_result.hiring_probability,
+            next_steps=next_steps,
+            full_report_markdown=md
+        )
 
-        # Persist report to disk (best-effort)
         try:
-            candidate_name = result.candidate_name or "candidate"
-            save_report_markdown(result.full_report_markdown, candidate_name)
-            # Save full analysis JSON
+            save_report_markdown(md, candidate_name)
             all_data = {
-                "resume_analysis": state.get("resume_analysis", {}).model_dump()
-                if state.get("resume_analysis")
-                else None,
-                "job_analysis": state.get("job_analysis", {}).model_dump()
-                if state.get("job_analysis")
-                else None,
-                "skill_match": state.get("skill_match", {}).model_dump()
-                if state.get("skill_match")
-                else None,
-                "skill_gaps": state.get("skill_gaps", {}).model_dump()
-                if state.get("skill_gaps")
-                else None,
-                "final_report": result.model_dump(),
+                "resume_analysis": state.get("resume_analysis", {}).model_dump() if state.get("resume_analysis") else None,
+                "job_analysis": state.get("job_analysis", {}).model_dump() if state.get("job_analysis") else None,
+                "skill_match": state.get("skill_match", {}).model_dump() if state.get("skill_match") else None,
+                "skill_gaps": state.get("skill_gaps", {}).model_dump() if state.get("skill_gaps") else None,
+                "final_report": final_report.model_dump()
             }
             save_analysis_json(all_data, candidate_name)
         except Exception as save_exc:
             logger.warning("[ReportAgent] Could not save report to disk: %s", save_exc)
 
         logger.info(
-            "[ReportAgent] Done. Score: %.1f | Probability: %s",
-            result.match_score,
-            result.hiring_probability,
+            "[ReportAgent] Done. Score: %d | Probability: %s",
+            final_report.match_score,
+            final_report.hiring_probability,
         )
         return {
-            "final_report": result,
+            "final_report": final_report,
             "completed_steps": [WorkflowStep.REPORT_AGENT],
             "processing_log": [
-                f"ReportAgent completed. Final score: {result.match_score:.1f}/100. "
-                f"Hiring probability: {result.hiring_probability}"
-            ],
-            "next_step": WorkflowStep.END,
+                f"ReportAgent completed. Final score: {final_report.match_score}/100. "
+                f"Hiring probability: {final_report.hiring_probability}"
+            ]
         }
 
     except Exception as exc:
@@ -153,12 +160,8 @@ def report_agent(state: CareerPilotState) -> dict:
             "errors": [
                 {
                     "step": WorkflowStep.REPORT_AGENT,
-                    "error": str(exc),
-                    "retry_count": state.get("retry_counts", {}).get(
-                        WorkflowStep.REPORT_AGENT, 0
-                    ),
+                    "error": str(exc)
                 }
             ],
-            "processing_log": [f"ReportAgent FAILED: {exc}"],
-            "next_step": WorkflowStep.END,
+            "processing_log": [f"ReportAgent FAILED: {exc}"]
         }
