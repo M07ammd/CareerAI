@@ -68,6 +68,34 @@ async def health_check() -> HealthResponse:
     )
 
 
+@router.get(
+    "/health/ready",
+    summary="Readiness check — verifies API key is configured",
+    tags=["System"],
+)
+async def health_ready():
+    """
+    Deeper health check. Verifies the LLM API key is present.
+    Returns 200 if ready, 503 if not.
+    No LLM call is made.
+    """
+    s = get_settings()
+    key_present = bool(
+        (s.llm_provider == "openai" and s.openai_api_key)
+        or (s.llm_provider == "google" and s.google_api_key)
+        or (s.llm_provider == "anthropic" and s.anthropic_api_key)
+    )
+    if not key_present:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "not_ready",
+                "reason": f"No API key configured for provider '{s.llm_provider}'.",
+            },
+        )
+    return {"status": "ready", "llm_provider": s.llm_provider, "version": s.version}
+
+
 # ---------------------------------------------------------------------------
 # Main Analysis Endpoint
 # ---------------------------------------------------------------------------

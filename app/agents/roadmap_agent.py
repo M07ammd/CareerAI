@@ -17,7 +17,7 @@ from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
 from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import CareerRoadmap, WorkflowStep
-from app.tools.web_search import web_search
+from app.tools.web_search import async_web_search as web_search
 
 logger = logging.getLogger(__name__)
 
@@ -76,16 +76,18 @@ async def roadmap_agent(state: CareerPilotState) -> dict:
     web_snippets: list[str] = []
     settings = get_settings()
     if settings.web_search_enabled:
+        from datetime import datetime
+        year = datetime.now().year
         queries = [
-            f"best {job_analysis.job_title} learning roadmap 2024",
-            f"top certifications for {job_analysis.domain} engineers 2024",
+            f"best {job_analysis.job_title} learning roadmap {year}",
+            f"top certifications for {job_analysis.domain} engineers {year}",
         ]
         if skill_gaps.high_priority_gaps:
             top_skill = skill_gaps.high_priority_gaps[0].skill
-            queries.append(f"best online course for {top_skill} 2024")
+            queries.append(f"best online course for {top_skill} {year}")
 
         for q in queries:
-            results = web_search(q, max_results=3)
+            results = await web_search(q, max_results=3)
             web_snippets.extend(results)
 
     context_parts = [

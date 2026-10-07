@@ -17,7 +17,7 @@ from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
 from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import SkillGaps, WorkflowStep
-from app.tools.web_search import web_search
+from app.tools.web_search import async_web_search as web_search
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +72,13 @@ async def gap_agent(state: CareerPilotState) -> dict:
     web_snippets: list[str] = []
     settings = get_settings()
     if settings.web_search_enabled and skill_match.missing_skills:
+        from datetime import datetime
+        year = datetime.now().year
         top_missing = skill_match.missing_skills[:3]
         job_title = job_analysis.job_title
         for skill in top_missing:
-            query = f"best way to learn {skill} for {job_title} 2024"
-            results = web_search(query, max_results=2)
+            query = f"best way to learn {skill} for {job_title} {year}"
+            results = await web_search(query, max_results=2)
             web_snippets.extend(results)
             logger.debug("[GapAgent] Web search '%s' → %d results", query, len(results))
 

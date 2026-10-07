@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
 
     try:
-        from graph.graph import get_graph
+        from app.graph.graph import get_graph
         get_graph()
         logger.info("LangGraph workflow compiled and ready.")
     except Exception as exc:
@@ -155,7 +155,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    from api.routes import router as api_router
+    from app.api.routes import router as api_router
     app.include_router(api_router, prefix="/api")
 
     return app

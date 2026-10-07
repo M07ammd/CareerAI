@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend: lint + tests
+  # ──────────────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend (Python ${{ env.PYTHON_VERSION }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install runtime dependencies
+        run: |
+          pip install --upgrade pip
+          # Install from the lock file if it exists, otherwise from requirements.txt
+          if [ -f requirements.lock ]; then
+            pip install -r requirements.lock
+          else
+            pip install -r requirements.txt
+          fi
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check app/ tests/ --select=E,W,F,I --ignore=E501
+
+      - name: Run pytest (with fake LLM — no real API keys)
+        env:
+          OPENAI_API_KEY: "test-key-ci-only"
+          DEBUG: "false"
+          WEB_SEARCH_ENABLED: "false"
+          SAVE_REPORTS: "false"
+        run: |
+          pytest tests/ -v --tb=short \
+            --ignore=tests/evaluation.py \
+            -m "not real_llm"
+
+      - name: Run evaluation harness (CI-safe dry run)
+        env:
+          OPENAI_API_KEY: "test-key-ci-only"
+        run: |
+          pytest tests/evaluation.py -v --tb=short -m "not real_llm"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Frontend: build + lint
+  # ──────────────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (Node ${{ env.NODE_VERSION }})
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Lint with oxlint
+        run: npx oxlint src/ --deny-warnings
+
+      - name: Check for dangerouslySetInnerHTML
+        run: |
+          if grep -r "dangerouslySetInnerHTML" src/; then
+            echo "ERROR: dangerouslySetInnerHTML found in frontend source — XSS risk!"
+            exit 1
+          fi
+          echo "✓ No dangerouslySetInnerHTML found"
