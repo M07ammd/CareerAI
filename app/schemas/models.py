@@ -298,3 +298,33 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     llm_provider: str
+
+
+class InterviewTurnRequest(BaseModel):
+    question: str = Field(description="The interview question being answered")
+    answer: str = Field(description="The candidate's answer")
+    resume_context: str = Field(description="Candidate's background context")
+    job_context: str = Field(description="Job description context")
+
+
+class InterviewTurnResponse(BaseModel):
+    feedback: str = Field(description="Constructive feedback on the answer")
+    score: int = Field(ge=0, le=100, description="Score for this specific answer")
+    follow_up_question: Optional[str] = Field(default=None, description="Optional follow-up question")
+
+
+class CompareRequest(BaseModel):
+    job_descriptions: List[str] = Field(min_length=2, max_length=5, description="List of job descriptions to compare against")
+
+
+class JobComparison(BaseModel):
+    job_index: int
+    job_title: str
+    match_score: int
+    pros: List[str]
+    cons: List[str]
+
+
+class CompareResponse(BaseModel):
+    comparisons: List[JobComparison]
+    recommendation: str = Field(description="Overall recommendation on which job is the best fit")

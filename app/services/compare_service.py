@@ -1,0 +1,61 @@
+"""
+CareerPilot AI - Job Comparison Service
+
+Compares a candidate's resume against multiple job descriptions to find the best fit.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import List
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from app.llm import get_structured_llm
+from app.agents.prompt_utils import ANTI_INJECTION_INSTRUCTION, wrap_user_content
+from app.schemas.models import CompareResponse
+
+logger = logging.getLogger(__name__)
+
+SYSTEM_PROMPT = f"""You are a Senior Career Coach and Job Placement Expert.
+{ANTI_INJECTION_INSTRUCTION}
+
+You will receive:
+- The candidate's resume text.
+- A list of job descriptions.
+
+Your task is to analyze how well the candidate fits each job, providing:
+1. An overall match score (0-100) for each job.
+2. The pros (strengths) of the candidate for that job.
+3. The cons (gaps) of the candidate for that job.
+4. A final recommendation on which job is the best fit overall and why.
+
+Output the result adhering strictly to the required JSON schema.
+"""
+
+async def run_comparison(resume_text: str, job_descriptions: List[str]) -> CompareResponse:
+    """Compare a resume against multiple job descriptions."""
+    logger.info("Comparing resume against %d job descriptions.", len(job_descriptions))
+    
+    llm = get_structured_llm(CompareResponse)
+    
+    jds_context = ""
+    for idx, jd in enumerate(job_descriptions):
+        jds_context += f"=== JOB DESCRIPTION {idx} ===\n{jd}\n\n"
+        
+    context = (
+        f"=== CANDIDATE RESUME ===\n{resume_text}\n\n"
+        f"{jds_context}"
+    )
+    
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=context)
+    ]
+    
+    try:
+        response = await llm.ainvoke(messages)
+        return response
+    except Exception as exc:
+        logger.exception("Failed to run comparison: %s", exc)
+        raise
