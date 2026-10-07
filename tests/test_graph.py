@@ -4,9 +4,9 @@ Tests for the LangGraph routing logic.
 
 import pytest
 
-from backend.graph.router import supervisor_router
-from backend.graph.state import CareerPilotState, get_initial_state
-from backend.schemas.models import WorkflowStep
+from app.graph.router import supervisor_router
+from app.graph.state import CareerPilotState, get_initial_state
+from app.schemas.models import WorkflowStep
 
 
 def make_state(**overrides) -> CareerPilotState:

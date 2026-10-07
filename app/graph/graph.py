@@ -10,15 +10,15 @@ import logging
 
 from langgraph.graph import END, START, StateGraph
 
-from agents.gap_agent import gap_agent
-from agents.interview_agent import interview_agent
-from agents.job_agent import job_agent
-from agents.report_agent import report_agent
-from agents.resume_agent import resume_agent
-from agents.roadmap_agent import roadmap_agent
-from agents.skill_agent import skill_agent
-from graph.router import supervisor_node, supervisor_router
-from graph.state import CareerPilotState
+from app.agents.gap_agent import gap_agent
+from app.agents.interview_agent import interview_agent
+from app.agents.job_agent import job_agent
+from app.agents.report_agent import report_agent
+from app.agents.resume_agent import resume_agent
+from app.agents.roadmap_agent import roadmap_agent
+from app.agents.skill_agent import skill_agent
+from app.graph.router import supervisor_node, supervisor_router
+from app.graph.state import CareerPilotState
 
 logger = logging.getLogger(__name__)
 

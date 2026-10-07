@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.graph.state import get_initial_state
-from backend.schemas.models import (
+from app.graph.state import get_initial_state
+from app.schemas.models import (
     JobAnalysis,
     ResumeAnalysis,
     SkillGaps,
@@ -36,7 +36,7 @@ def make_resume_state(**overrides):
 
 
 class TestResumeAgent:
-    @patch("backend.agents.resume_agent.get_structured_llm")
+    @patch("app.agents.resume_agent.get_structured_llm")
     def test_successful_extraction(self, mock_get_llm):
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = ResumeAnalysis(
@@ -47,7 +47,7 @@ class TestResumeAgent:
         )
         mock_get_llm.return_value = mock_llm
 
-        from backend.agents.resume_agent import resume_agent
+        from app.agents.resume_agent import resume_agent
 
         state = make_resume_state()
         result = resume_agent(state)
@@ -57,13 +57,13 @@ class TestResumeAgent:
         assert result["next_step"] == WorkflowStep.JOB_AGENT
         assert WorkflowStep.RESUME_AGENT in result["completed_steps"]
 
-    @patch("backend.agents.resume_agent.get_structured_llm")
+    @patch("app.agents.resume_agent.get_structured_llm")
     def test_llm_failure_returns_error(self, mock_get_llm):
         mock_llm = MagicMock()
         mock_llm.invoke.side_effect = Exception("LLM timeout")
         mock_get_llm.return_value = mock_llm
 
-        from backend.agents.resume_agent import resume_agent
+        from app.agents.resume_agent import resume_agent
 
         state = make_resume_state()
         result = resume_agent(state)
@@ -73,7 +73,7 @@ class TestResumeAgent:
         assert result["next_step"] == WorkflowStep.END
 
     def test_empty_resume_text_returns_error(self):
-        from backend.agents.resume_agent import resume_agent
+        from app.agents.resume_agent import resume_agent
 
         state = get_initial_state(resume_text="", job_description="Valid JD here")
         result = resume_agent(state)
@@ -83,7 +83,7 @@ class TestResumeAgent:
 
 
 class TestJobAgent:
-    @patch("backend.agents.job_agent.get_structured_llm")
+    @patch("app.agents.job_agent.get_structured_llm")
     def test_successful_extraction(self, mock_get_llm):
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = JobAnalysis(
@@ -94,7 +94,7 @@ class TestJobAgent:
         )
         mock_get_llm.return_value = mock_llm
 
-        from backend.agents.job_agent import job_agent
+        from app.agents.job_agent import job_agent
 
         state = make_resume_state()
         result = job_agent(state)
@@ -104,7 +104,7 @@ class TestJobAgent:
         assert result["next_step"] == WorkflowStep.SKILL_AGENT
 
     def test_empty_jd_returns_error(self):
-        from backend.agents.job_agent import job_agent
+        from app.agents.job_agent import job_agent
 
         state = get_initial_state(resume_text="Valid resume", job_description="")
         result = job_agent(state)
@@ -114,7 +114,7 @@ class TestJobAgent:
 
 
 class TestSkillAgent:
-    @patch("backend.agents.skill_agent.get_structured_llm")
+    @patch("app.agents.skill_agent.get_structured_llm")
     def test_successful_matching(self, mock_get_llm):
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = SkillMatch(
@@ -125,7 +125,7 @@ class TestSkillAgent:
         )
         mock_get_llm.return_value = mock_llm
 
-        from backend.agents.skill_agent import skill_agent
+        from app.agents.skill_agent import skill_agent
 
         state = make_resume_state(
             resume_analysis=ResumeAnalysis(
@@ -146,7 +146,7 @@ class TestSkillAgent:
         assert result["next_step"] == WorkflowStep.GAP_AGENT
 
     def test_missing_prerequisites_returns_error(self):
-        from backend.agents.skill_agent import skill_agent
+        from app.agents.skill_agent import skill_agent
 
         state = make_resume_state()  # no resume_analysis or job_analysis set
         result = skill_agent(state)

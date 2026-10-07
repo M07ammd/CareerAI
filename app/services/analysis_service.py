@@ -14,9 +14,9 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from graph.graph import get_graph
-from graph.state import get_initial_state
-from schemas.models import AnalysisResponse
+from app.graph.graph import get_graph
+from app.graph.state import get_initial_state
+from app.schemas.models import AnalysisResponse
 
 logger = logging.getLogger(__name__)
 

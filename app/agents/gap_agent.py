@@ -12,11 +12,11 @@ import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from config import get_settings
-from graph.state import CareerPilotState
-from llm import get_structured_llm
-from schemas.models import SkillGaps, WorkflowStep
-from tools.web_search import web_search
+from app.config import get_settings
+from app.graph.state import CareerPilotState
+from app.llm import get_structured_llm
+from app.schemas.models import SkillGaps, WorkflowStep
+from app.tools.web_search import web_search
 
 logger = logging.getLogger(__name__)
 

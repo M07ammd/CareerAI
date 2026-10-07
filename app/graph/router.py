@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 
-from config import get_settings
-from graph.state import CareerPilotState
-from schemas.models import WorkflowStep
+from app.config import get_settings
+from app.graph.state import CareerPilotState
+from app.schemas.models import WorkflowStep
 
 logger = logging.getLogger(__name__)
 

@@ -12,10 +12,10 @@ from datetime import datetime
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from graph.state import CareerPilotState
-from llm import get_structured_llm
-from schemas.models import FinalReport, WorkflowStep
-from tools.file_writer import save_analysis_json, save_report_markdown
+from app.graph.state import CareerPilotState
+from app.llm import get_structured_llm
+from app.schemas.models import FinalReport, WorkflowStep
+from app.tools.file_writer import save_analysis_json, save_report_markdown
 
 logger = logging.getLogger(__name__)
 

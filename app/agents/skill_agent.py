@@ -12,9 +12,9 @@ import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from graph.state import CareerPilotState
-from llm import get_structured_llm
-from schemas.models import SkillMatch, WorkflowStep
+from app.graph.state import CareerPilotState
+from app.llm import get_structured_llm
+from app.schemas.models import SkillMatch, WorkflowStep
 
 logger = logging.getLogger(__name__)
 

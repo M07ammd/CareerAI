@@ -5,7 +5,7 @@ Tests for Pydantic schema models.
 import pytest
 from pydantic import ValidationError
 
-from backend.schemas.models import (
+from app.schemas.models import (
     AnalysisResponse,
     CareerRoadmap,
     EducationEntry,

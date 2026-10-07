@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 # Set a dummy env var so config doesn't fail
 os.environ.setdefault("OPENAI_API_KEY", "test-key-123")
 
-from backend.main import app
-from backend.schemas.models import AnalysisResponse
+from app.main import app
+from app.schemas.models import AnalysisResponse
 
 
 @pytest.fixture
@@ -99,8 +99,8 @@ class TestAnalyzeEndpoint:
         )
         assert response.status_code == 422
 
-    @patch("backend.api.routes.run_analysis")
-    @patch("backend.api.routes.extract_text_from_pdf")
+    @patch("app.api.routes.run_analysis")
+    @patch("app.api.routes.extract_text_from_pdf")
     def test_successful_analysis(self, mock_extract, mock_run, client, minimal_pdf_bytes):
         """Test that a valid request calls the analysis service and returns results."""
         mock_extract.return_value = "John Doe\nSoftware Engineer\nPython, ML experience"
@@ -129,14 +129,14 @@ class TestAnalyzeEndpoint:
 class TestInputValidation:
     def test_job_description_minimum_length(self):
         """Validate that short JDs are caught early."""
-        from backend.schemas.models import AnalysisRequest
+        from app.schemas.models import AnalysisRequest
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
             AnalysisRequest(job_description="Short")
 
     def test_job_description_valid(self):
-        from backend.schemas.models import AnalysisRequest
+        from app.schemas.models import AnalysisRequest
 
         req = AnalysisRequest(
             job_description="We need a Python developer with at least 3 years of experience in backend development and REST APIs."

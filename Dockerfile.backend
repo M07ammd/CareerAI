@@ -7,7 +7,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/backend
+    PYTHONPATH=/app/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir -p /app/data/reports /app/data/samples
 
-COPY backend/ /app/backend/
+COPY app/ /app/app/
 
 RUN adduser --disabled-password --gecos "" appuser \
     && chown -R appuser:appuser /app

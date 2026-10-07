@@ -4,8 +4,6 @@ CareerPilot AI - API Routes
 FastAPI router with all HTTP endpoints.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import uuid
@@ -14,11 +12,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from config import get_settings
-from main import _check_api_key, limiter
-from schemas.models import AnalysisResponse, HealthResponse
-from services.analysis_service import run_analysis
-from tools.pdf_parser import extract_text_from_pdf
+from app.config import get_settings
+from app.main import _check_api_key, limiter
+from app.schemas.models import AnalysisResponse, HealthResponse
+from app.services.analysis_service import run_analysis
+from app.tools.pdf_parser import extract_text_from_pdf
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -127,7 +125,10 @@ async def analyze_career(
     # ---- Read upload in chunks with hard cap --------------------------------
     chunks = []
     total = 0
-    async for chunk in cv_file:
+    while True:
+        chunk = await cv_file.read(8192)
+        if not chunk:
+            break
         total += len(chunk)
         if total > max_bytes:
             raise HTTPException(
