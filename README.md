@@ -138,41 +138,87 @@ Copy `.env.example` to `.env` and fill in your secrets.
 
 ---
 
-## How to Run
+## How to Run (Local Execution)
 
-### Option 1: Docker (Recommended)
+This application is designed to be run locally on your machine. You do not need to deploy it to any cloud provider.
 
+### Option 1: Docker (Recommended for ease of use)
+
+This is the simplest way to run the application, as it handles all dependencies automatically.
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/M07ammd/CareerAI.git
+    cd CareerAI
+    ```
+
+2.  **Configure Environment Variables:**
+    ```bash
+    cp .env.example .env
+    ```
+    Open the `.env` file in a text editor and add your OpenAI API key:
+    `OPENAI_API_KEY=sk-...`
+
+3.  **Start the application:**
+    ```bash
+    docker compose up --build
+    ```
+    *(Wait a few minutes for the images to build and start. It's ready when you see both backend and frontend running successfully in the terminal.)*
+
+4.  **Access the application:**
+    - Open your browser and go to: `http://localhost` (Frontend UI)
+    - Backend API is running at: `http://localhost:8000/api`
+    - Interactive API Docs: `http://localhost:8000/docs`
+
+5.  **Stop the application:**
+    Press `Ctrl+C` in the terminal, then run:
+    ```bash
+    docker compose down
+    ```
+
+---
+
+### Option 2: Local Development (Without Docker)
+
+Use this option if you want to modify the code or prefer running things manually.
+
+**1. Start the Backend:**
 ```bash
-cp .env.example .env
-# Edit .env and add OPENAI_API_KEY=sk-...
-docker compose up --build
-```
+# Clone the repository
+git clone https://github.com/M07ammd/CareerAI.git
+cd CareerAI
 
-- Frontend: `http://localhost`
-- Backend API: `http://localhost:8000/api`
-- API docs: `http://localhost:8000/docs`
-
-### Option 2: Local Development
-
-```bash
-# Backend
+# Create a virtual environment
 python -m venv venv
+
+# Activate it
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # Mac/Linux
 
+# Install dependencies
 pip install -r requirements.lock
-cp .env.example .env            # fill in OPENAI_API_KEY
 
+# Configure Environment Variables
+cp .env.example .env            
+# Open .env and fill in OPENAI_API_KEY=sk-...
+
+# Run the FastAPI server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+*The backend server is now running on `http://localhost:8000`.*
 
+**2. Start the Frontend:**
 ```bash
-# Frontend (separate terminal)
-cd frontend
+# Open a NEW terminal window/tab
+cd CareerAI/frontend
+
+# Install Node.js dependencies
 npm install
+
+# Start the Vite development server
 npm run dev
-# → http://localhost:5173
 ```
+*The frontend is now running on `http://localhost:5173`. Open this URL in your browser to use the app.*
 
 ---
 
