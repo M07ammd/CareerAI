@@ -302,10 +302,10 @@ class HealthResponse(BaseModel):
 
 
 class InterviewTurnRequest(BaseModel):
-    question: str = Field(description="The interview question being answered")
-    answer: str = Field(description="The candidate's answer")
-    resume_context: str = Field(description="Candidate's background context")
-    job_context: str = Field(description="Job description context")
+    question: str = Field(max_length=5000, description="The interview question being answered")
+    answer: str = Field(max_length=15000, description="The candidate's answer")
+    resume_context: str = Field(max_length=30000, description="Candidate's background context")
+    job_context: str = Field(max_length=15000, description="Job description context")
 
 
 class InterviewTurnResponse(BaseModel):
@@ -314,8 +314,12 @@ class InterviewTurnResponse(BaseModel):
     follow_up_question: Optional[str] = Field(default=None, description="Optional follow-up question")
 
 
+from typing import Annotated
+
 class CompareRequest(BaseModel):
-    job_descriptions: List[str] = Field(min_length=2, max_length=5, description="List of job descriptions to compare against")
+    job_descriptions: List[Annotated[str, Field(max_length=15000)]] = Field(
+        min_length=2, max_length=5, description="List of job descriptions to compare against"
+    )
 
 
 class JobComparison(BaseModel):

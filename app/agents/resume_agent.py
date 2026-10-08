@@ -67,8 +67,8 @@ async def resume_agent(state: CareerPilotState) -> dict:
     try:
         result: ResumeAnalysis = await llm.ainvoke(messages)
         logger.info(
-            "[ResumeAgent] Done. Candidate: %s | Skills: %d | Experience entries: %d",
-            result.candidate_name,
+            "[ResumeAgent] Done. Skills: %d | Experience entries: %d",
+
             len(result.technical_skills),
             len(result.experience),
         )

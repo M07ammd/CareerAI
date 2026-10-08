@@ -36,15 +36,15 @@ Provide constructive feedback, a score out of 100, and optionally a follow-up qu
 
 async def handle_interview_turn(request: InterviewTurnRequest) -> InterviewTurnResponse:
     """Evaluate a candidate's answer to an interview question."""
-    logger.info("Evaluating interview answer for question: %s", request.question)
+    logger.info("Evaluating interview answer.")
     
     llm = get_structured_llm(InterviewTurnResponse)
     
     context = (
-        f"=== JOB CONTEXT ===\n{request.job_context}\n\n"
-        f"=== RESUME CONTEXT ===\n{request.resume_context}\n\n"
-        f"=== QUESTION ===\n{request.question}\n\n"
-        f"=== ANSWER ===\n{request.answer}"
+        wrap_user_content("JOB CONTEXT", request.job_context) + "\n\n" +
+        wrap_user_content("RESUME CONTEXT", request.resume_context) + "\n\n" +
+        wrap_user_content("QUESTION", request.question) + "\n\n" +
+        wrap_user_content("ANSWER", request.answer)
     )
     
     messages = [

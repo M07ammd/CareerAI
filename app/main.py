@@ -23,14 +23,32 @@ from app.config import get_settings
 # Logging setup
 # ---------------------------------------------------------------------------
 
+import json
+from contextvars import ContextVar
+
+request_id_var: ContextVar[str] = ContextVar("request_id", default="system")
+
+class JsonLogFormatter(logging.Formatter):
+    def format(self, record):
+        log_data = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+            "request_id": request_id_var.get(),
+        }
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_data)
+
 settings = get_settings()
 
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stdout,
-)
+logger = logging.getLogger()
+logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JsonLogFormatter(datefmt="%Y-%m-%dT%H:%M:%S%z"))
+logger.handlers = [handler]
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -76,20 +94,55 @@ class RequestIdMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             req_id = str(uuid.uuid4())
-            scope["state"] = getattr(scope.get("state"), "__dict__", {})
-            # Store in scope extensions so it is accessible in routes
-            scope.setdefault("extensions", {})["request_id"] = req_id
+            token = request_id_var.set(req_id)
+            try:
+                scope["state"] = getattr(scope.get("state"), "__dict__", {})
+                scope.setdefault("extensions", {})["request_id"] = req_id
+                
+                async def send_with_header(message):
+                    if message["type"] == "http.response.start":
+                        headers = dict(message.get("headers", []))
+                        headers[b"x-request-id"] = req_id.encode()
+                        message = {**message, "headers": list(headers.items())}
+                    await send(message)
 
-            async def send_with_header(message):
-                if message["type"] == "http.response.start":
-                    headers = dict(message.get("headers", []))
-                    headers[b"x-request-id"] = req_id.encode()
-                    message = {**message, "headers": list(headers.items())}
-                await send(message)
-
-            await self.app(scope, receive, send_with_header)
+                await self.app(scope, receive, send_with_header)
+            finally:
+                request_id_var.reset(token)
         else:
             await self.app(scope, receive, send)
+
+
+class ApiKeyAuthMiddleware:
+    """Check API key and Content-Length before the body is read."""
+    def __init__(self, app):
+        self.app = app
+        self.api_key = settings.api_key.encode() if settings.api_key else None
+        self.max_body_size = 15 * 1024 * 1024  # 15MB
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            if self.api_key and scope["path"].startswith("/api/"):
+                headers = dict(scope.get("headers", []))
+                provided = headers.get(b"x-api-key")
+                
+                import secrets
+                if not provided or not secrets.compare_digest(provided, self.api_key):
+                    await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
+                    await send({"type": "http.response.body", "body": b'{"detail":"Invalid or missing X-API-Key header."}'})
+                    return
+                    
+                content_length = headers.get(b"content-length")
+                if content_length:
+                    try:
+                        if int(content_length) > self.max_body_size:
+                            await send({"type": "http.response.start", "status": 413, "headers": [(b"content-type", b"application/json")]})
+                            await send({"type": "http.response.body", "body": b'{"detail":"Request body too large."}'})
+                            return
+                    except ValueError:
+                        pass
+                        
+        await self.app(scope, receive, send)
 
 
 # ---------------------------------------------------------------------------
@@ -118,8 +171,9 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Request-ID middleware
+    # Request-ID and Auth middleware (added in reverse order of execution)
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(ApiKeyAuthMiddleware)
 
     # CORS
     app.add_middleware(

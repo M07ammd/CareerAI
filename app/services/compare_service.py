@@ -41,11 +41,11 @@ async def run_comparison(resume_text: str, job_descriptions: List[str]) -> Compa
     
     jds_context = ""
     for idx, jd in enumerate(job_descriptions):
-        jds_context += f"=== JOB DESCRIPTION {idx} ===\n{jd}\n\n"
+        jds_context += wrap_user_content(f"JOB DESCRIPTION {idx}", jd) + "\n\n"
         
     context = (
-        f"=== CANDIDATE RESUME ===\n{resume_text}\n\n"
-        f"{jds_context}"
+        wrap_user_content("CANDIDATE RESUME", resume_text) + "\n\n" +
+        jds_context
     )
     
     messages = [

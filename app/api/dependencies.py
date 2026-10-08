@@ -1,4 +1,4 @@
-from fastapi import Request, HTTPException, status
+﻿from fastapi import Request, HTTPException, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -6,16 +6,11 @@ from app.config import get_settings
 
 settings = get_settings()
 
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
+def get_real_ip(request: Request) -> str:
+    """Return the client IP from X-Forwarded-For, falling back to remote_addr."""
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return get_remote_address(request)
 
-def _check_api_key(request: Request) -> None:
-    """Raise 401 if API_KEY is configured and the header is wrong/missing."""
-    expected = settings.api_key
-    if not expected:
-        return  # Auth disabled
-    provided = request.headers.get("X-API-Key", "")
-    if provided != expected:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing X-API-Key header.",
-        )
+limiter = Limiter(key_func=get_real_ip, default_limits=[])

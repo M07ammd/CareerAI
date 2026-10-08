@@ -7,12 +7,10 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     container_name: careerpilot-backend
-    ports:
-      - "8000:8000"
     env_file:
       - .env
     volumes:
-      - ./data:/app/data     # Persist generated reports
+      - careerpilot_data:/app/data     # Persist generated reports in named volume
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
@@ -37,3 +35,7 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  careerpilot_data:
+    name: careerpilot_data
