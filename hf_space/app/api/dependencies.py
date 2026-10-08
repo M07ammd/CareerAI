@@ -1,0 +1,18 @@
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from app.config import get_settings
+
+settings = get_settings()
+
+
+def get_real_ip(request: Request) -> str:
+    """Return the client IP from X-Forwarded-For, falling back to remote_addr."""
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=get_real_ip, default_limits=[])
