@@ -1,6 +1,6 @@
 # CareerPilot AI
 
-CareerPilot AI is a multi-agent career intelligence tool built with **LangGraph + FastAPI**. It analyzes a candidate's CV (PDF) against a target Job Description and produces a comprehensive, evidence-based career report with a deterministic match score, gap analysis, interview prep, roadmap, and actionable CV rewrites.
+CareerPilot AI is a backend service and web interface built with LangGraph and FastAPI. It processes a candidate's CV (PDF) against a target Job Description to generate a match score, identify skill gaps, and provide interview preparation material.
 
 ---
 
@@ -8,36 +8,27 @@ CareerPilot AI is a multi-agent career intelligence tool built with **LangGraph 
 
 ```mermaid
 flowchart TD
-    %% Styling
-    classDef userInput fill:#f9f9f9,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,border-radius:8px
-    classDef apiLayer fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,border-radius:8px
-    classDef orchestrator fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,border-radius:8px
-    classDef agent fill:#fff3e0,stroke:#f57c00,stroke-width:2px,border-radius:8px
-    classDef final fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,border-radius:8px
-
-    %% Nodes
-    User("👤 User (CV PDF + Job Description)"):::userInput
-    API("🚀 FastAPI (app/)<br/><i>POST /api/analyze</i>"):::apiLayer
+    User["User (CV PDF + Job Description)"]
+    API["FastAPI (POST /api/analyze)"]
     
-    subgraph "🧠 LangGraph Workflow"
+    subgraph "LangGraph Workflow"
         direction TB
-        ResumeAgent("📄 Resume Agent<br/><i>Extracts CV Data</i>"):::agent
-        JobAgent("💼 Job Agent<br/><i>Parses JD</i>"):::agent
+        ResumeAgent["Resume Agent (Extract CV Data)"]
+        JobAgent["Job Agent (Parse JD)"]
         
-        SkillAgent("🎯 Skill Agent<br/><i>Deterministic Match Score</i>"):::agent
-        GapAgent("🔍 Gap Agent<br/><i>Web-Search Enriched</i>"):::agent
+        SkillAgent["Skill Agent (Match Score)"]
+        GapAgent["Gap Agent (Web Search)"]
         
-        InterviewAgent("🎤 Interview Agent<br/><i>Custom Questions</i>"):::agent
-        RoadmapAgent("🗺️ Roadmap Agent<br/><i>Career Path</i>"):::agent
+        InterviewAgent["Interview Agent (Questions)"]
+        RoadmapAgent["Roadmap Agent (Career Path)"]
         
-        CleanState("🧹 Clean State"):::orchestrator
-        ReportAgent("📊 Report Agent<br/><i>Markdown Tables</i>"):::final
-        CVSuggestionAgent("✍️ CV Suggestion Agent<br/><i>Bullet Rewrites</i>"):::final
+        CleanState["Clean State"]
+        ReportAgent["Report Agent (Markdown output)"]
+        CVSuggestionAgent["CV Suggestion Agent (Bullet Rewrites)"]
     end
     
-    End("🏁 End"):::userInput
+    End["End"]
 
-    %% Connections
     User --> API
     API --> ResumeAgent & JobAgent
     
