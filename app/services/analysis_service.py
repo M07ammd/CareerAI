@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Analysis Service
 
 Orchestrates the LangGraph workflow for a complete career analysis.
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 CRITICAL_STEPS = frozenset({"resume_agent", "job_agent", "skill_agent"})
 
 # Optional agents: failure yields a warning, not an error.
-OPTIONAL_STEPS = frozenset({"interview_agent", "roadmap_agent", "gap_agent", "report_agent"})
+OPTIONAL_STEPS = frozenset({"interview_agent", "roadmap_agent", "gap_agent", "report_agent", "cv_suggestion_agent"})
 
 
 def _normalise_step(step: str) -> str:

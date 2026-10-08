@@ -81,6 +81,7 @@ def fake_analysis_response():
             missing_skills=["LangGraph"],
             match_score=66,
             explanation="Good match.",
+            strengths="| Finding | Evidence |",
         ),
         final_report=FinalReport(
             candidate_name="Alice Smith",
@@ -89,6 +90,7 @@ def fake_analysis_response():
             match_score=66,
             score_interpretation="Good fit with some gaps.",
             hiring_probability="Medium",
+            top_recommendations="| Finding | Evidence |",
             full_report_markdown="# Report\n\nGood match.",
         ),
         processing_steps=["resume_agent", "job_agent", "skill_agent", "report_agent"],

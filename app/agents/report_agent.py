@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Report Generator Agent
 
 Combines all agent results into a professional final report.
@@ -29,6 +29,7 @@ class ReportSummary(BaseModel):
     executive_summary: str = Field(description="3-5 sentence executive summary")
     score_interpretation: str = Field(description="What the score means and what it implies")
     hiring_probability: str = Field(description="Estimated likelihood of success: Low / Medium / High")
+    top_recommendations: str = Field(description="MUST be a Markdown table with exactly two columns: 'Finding' and 'Evidence from CV'.")
     cv_bullet_rewrites: list[CVBulletRewrite] = Field(
         default_factory=list,
         description="Suggested rewrites for 2-3 CV bullets to better align with the job",
@@ -43,6 +44,7 @@ SYSTEM_PROMPT = (
     "2. Score interpretation (what the match score means for this candidate)\n"
     "3. Hiring probability assessment (Low / Medium / High) with justification\n"
     "4. CV Bullet Rewrites (2-3 suggestions improving existing bullet points)\n"
+    "5. Top Recommendations as a Markdown table with columns: Finding, Evidence from CV\n"
     + ANTI_INJECTION_INSTRUCTION
 )
 
@@ -138,13 +140,10 @@ async def report_agent(state: CareerPilotState) -> dict:
 
         candidate_name = ra.candidate_name if ra and ra.candidate_name else "Candidate"
         job_title = ja.job_title if ja else "Role"
-        key_strengths = sm.strengths if sm else []
+        key_strengths = sm.strengths if sm else ""
         critical_gaps = [g.skill for g in sg.high_priority_gaps] if sg else []
         next_steps = [a.title for a in cr.immediate_actions] if cr else []
-        top_recs = []
-        if cr:
-            top_recs = [a.title for a in cr.immediate_actions] + [a.title for a in cr.short_term_goals]
-            top_recs = top_recs[:5]
+        top_recs = summary_result.top_recommendations
 
         md = _build_markdown(state, summary_result)
 

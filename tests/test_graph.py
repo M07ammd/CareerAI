@@ -206,6 +206,7 @@ class TestFullGraph:
                     missing_skills=["LangGraph"],
                     match_score=66,
                     explanation="Good match.",
+                    strengths="| Finding | Evidence |",
                 ),  # skill_agent
                 SkillGaps(overall_gap_summary="Minor gaps."),  # gap_agent
                 InterviewQuestions(),  # interview_agent
@@ -214,6 +215,7 @@ class TestFullGraph:
                     executive_summary="Alice is a strong match.",
                     score_interpretation="66/100 is a good fit.",
                     hiring_probability="Medium",
+                    top_recommendations="| Finding | Evidence |",
                 ),  # report_agent
             ]
             if n < len(responses):

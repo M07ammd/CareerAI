@@ -221,4 +221,4 @@ class TestWorkflowStep:
         steps = list(WorkflowStep)
         assert WorkflowStep.RESUME_AGENT in steps
         assert WorkflowStep.END in steps
-        assert len(steps) == 8  # 7 agents + END
+        assert len(steps) == 9  # 8 agents + END

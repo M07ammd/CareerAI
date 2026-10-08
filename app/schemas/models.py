@@ -37,6 +37,7 @@ class WorkflowStep(str, Enum):
     INTERVIEW_AGENT = "interview_agent"
     ROADMAP_AGENT = "roadmap_agent"
     REPORT_AGENT = "report_agent"
+    CV_SUGGESTION_AGENT = "cv_suggestion_agent"
     END = "end"
 
 
@@ -255,7 +256,7 @@ class FinalReport(BaseModel):
     score_interpretation: str = Field(
         description="What the score means and what it implies"
     )
-    key_strengths: List[str] = Field(default_factory=list)
+    key_strengths: str = Field(default="")
     critical_gaps: List[str] = Field(default_factory=list)
     top_recommendations: str = Field(
         description="Top actionable recommendations. MUST be a Markdown table with exactly two columns: 'Finding' and 'Evidence from CV'."

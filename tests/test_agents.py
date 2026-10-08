@@ -178,3 +178,45 @@ def test_deterministic_scoring_logic():
     score_obj = compute_deterministic_score(req, pref, matched=["Python"], partial=[partial_obj])
     assert score_obj == score_partial
     
+
+class TestCVSuggestionAgent:
+    @patch("app.agents.cv_suggestion_agent.get_structured_llm")
+    @pytest.mark.asyncio
+    async def test_successful_rewrites(self, mock_get_llm):
+        from app.agents.cv_suggestion_agent import BulletRewrites, cv_suggestion_agent
+        from app.schemas.models import CVBulletRewrite, FinalReport
+        
+        mock_llm = AsyncMock()
+        mock_llm.ainvoke.return_value = BulletRewrites(
+            rewrites=[
+                CVBulletRewrite(
+                    original_bullet="Did stuff",
+                    suggested_bullet="Did stuff well using Python",
+                    reasoning="Keywords"
+                )
+            ]
+        )
+        mock_get_llm.return_value = mock_llm
+        
+        fr = FinalReport(
+            job_title="Dev",
+            executive_summary="",
+            match_score=50,
+            score_interpretation="",
+            hiring_probability="Medium",
+            top_recommendations="|a|b|",
+            full_report_markdown=""
+        )
+        
+        state = make_resume_state(
+            resume_analysis=ResumeAnalysis(summary="Dev", technical_skills=[]),
+            job_analysis=JobAnalysis(job_title="Dev", domain="Backend", seniority_level="Junior"),
+            final_report=fr
+        )
+        
+        result = await cv_suggestion_agent(state)
+        
+        assert "final_report" in result
+        assert len(result["final_report"].cv_bullet_rewrites) == 1
+        assert result["final_report"].cv_bullet_rewrites[0].original_bullet == "Did stuff"
+
