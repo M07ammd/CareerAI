@@ -1,7 +1,7 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 *.so
 .Python
 env/
@@ -39,8 +39,7 @@ htmlcov/
 .tox/
 
 # Data (keep structure, ignore content)
-data/reports/*.md
-data/reports/*.json
+data/
 !data/reports/.gitkeep
 !data/samples/.gitkeep
 
