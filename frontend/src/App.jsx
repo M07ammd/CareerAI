@@ -36,7 +36,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [theme, setTheme] = useState('light');
-  
+
   const { toasts, push } = useToast();
   const fileUpload = useFileUpload();
 
@@ -90,7 +90,7 @@ export default function App() {
         <div className="container mx-auto px-4 md:px-8 h-14 flex items-center justify-between">
           <a className="flex items-center gap-2 font-bold tracking-tight text-lg hover:text-primary transition-colors" href="/">
             <div className="bg-primary text-primary-foreground p-1 rounded-md"><Layers className="h-4 w-4" /></div>
-            <span>CareerPilot</span>
+            <span>Career.AI</span>
           </a>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
@@ -107,7 +107,7 @@ export default function App() {
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Career Analysis</h1>
               <p className="text-muted-foreground text-lg">Compare your resume against a target role to find skill gaps and get a tailored learning roadmap.</p>
             </div>
-            
+
             {error && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -115,10 +115,10 @@ export default function App() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <form onSubmit={handleSubmit} className="space-y-8 bg-card border rounded-xl p-6 md:p-8 shadow-sm">
               <FileDropzone {...fileUpload} />
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="jd-input">Job Description</Label>
@@ -126,18 +126,18 @@ export default function App() {
                     Load Sample
                   </Button>
                 </div>
-                <Textarea 
-                  id="jd-input" 
-                  className="min-h-[200px] resize-y font-mono text-sm shadow-sm focus-visible:ring-primary/50" 
-                  placeholder="Paste the job description here…" 
-                  value={jobDescription} 
-                  onChange={(e) => setJobDescription(e.target.value)} 
+                <Textarea
+                  id="jd-input"
+                  className="min-h-[200px] resize-y font-mono text-sm shadow-sm focus-visible:ring-primary/50"
+                  placeholder="Paste the job description here…"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
                 />
                 <div className={`text-xs font-medium text-right ${jobDescription.length > 0 && jobDescription.length < 50 ? 'text-destructive' : 'text-muted-foreground'}`}>
                   {jobDescription.length} / 50 characters min
                 </div>
               </div>
-              
+
               <Button type="submit" size="lg" className="w-full text-base font-semibold shadow-sm" disabled={!fileUpload.file || jobDescription.length < 50}>
                 Analyze Profile
               </Button>
@@ -162,7 +162,7 @@ export default function App() {
                 </div>
                 <Button variant="outline" onClick={handleReset}>New Analysis</Button>
               </div>
-              
+
               {result.error_message && (
                 <Alert variant="destructive" className="mb-6">
                   <AlertTriangle className="h-4 w-4" />
@@ -170,14 +170,14 @@ export default function App() {
                   <AlertDescription>{result.error_message}</AlertDescription>
                 </Alert>
               )}
-              
+
               <OverviewCard result={result} />
               <SkillsTable skillMatch={result.skill_match} />
               <GapsTable skillGaps={result.skill_gaps} />
               <InterviewPanel interviewQuestions={result.interview_questions} />
               <RoadmapPanel careerRoadmap={result.career_roadmap} />
               <ReportPanel finalReport={result.final_report} cvRewrites={result.cv_rewrites} />
-              
+
               <p className="text-center text-xs text-muted-foreground mt-12 pt-8 border-t">
                 This report is generated automatically by AI. Please review for accuracy.
               </p>
@@ -185,7 +185,7 @@ export default function App() {
           </div>
         )}
       </main>
-      
+
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => <Toast key={t.id} {...t} />)}
       </div>
