@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://careerpilot-backend.onrender.com/api/:path*"
+      "destination": "https://M07ammd-careerpilot-backend.hf.space/api/:path*"
     }
   ],
   "headers": [
