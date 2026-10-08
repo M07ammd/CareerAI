@@ -1,0 +1,70 @@
+services:
+  # ============================================================
+  # Backend — FastAPI + LangGraph
+  # ============================================================
+  - type: web
+    name: careerpilot-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    plan: free               # free tier: 512MB RAM, 0.5 CPU, spins down after inactivity
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      # ---- LLM (fill in the Render Dashboard) ----
+      - key: LLM_PROVIDER
+        value: openai
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: LLM_BASE_URL
+        value: ""
+      - key: OPENAI_API_KEY
+        sync: false          # Set this manually in the Render Dashboard
+
+      # ---- Web Search (optional) ----
+      - key: WEB_SEARCH_ENABLED
+        value: "true"
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        value: ""
+
+      # ---- Security ----
+      - key: API_KEY
+        value: ""
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"           # Trust all — Render terminates TLS at their edge
+
+      # ---- CORS — set to your Vercel frontend URL ----
+      - key: CORS_ORIGINS
+        value: "https://careerpilot.vercel.app,http://localhost:5173"
+
+      # ---- Rate Limiting ----
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "10"
+
+      # ---- File Handling ----
+      - key: MAX_PDF_SIZE_MB
+        value: "10"
+      - key: MAX_PDF_PAGES
+        value: "50"
+      - key: MAX_RESUME_CHARS
+        value: "30000"
+      - key: MAX_JD_CHARS
+        value: "15000"
+
+      # ---- Reports ----
+      - key: SAVE_REPORTS
+        value: "false"
+
+      # ---- Reliability ----
+      - key: MAX_AGENT_RETRIES
+        value: "2"
+      - key: AGENT_TIMEOUT_SECONDS
+        value: "120"
+
+      # ---- Logging ----
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DEBUG
+        value: "false"
