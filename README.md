@@ -6,33 +6,54 @@ CareerPilot AI is a multi-agent career intelligence tool built with **LangGraph 
 
 ## Architecture
 
-```
-User (CV PDF + JD)
-       │
-       ▼
-  FastAPI (app/)
-       │ POST /api/analyze
-       ▼
-  LangGraph workflow
-  ┌─────────────┐   ┌─────────────┐
-  │ resume_agent│   │  job_agent  │  ← parallel fan-out
-  └──────┬──────┘   └──────┬──────┘
-         │                 │
-         └────────┬────────┘
-                  ▼
-            skill_agent          ← deterministic 0–100 score
-                  │
-            gap_agent            ← web-search enriched
-               ╱   ╲
-  interview_agent  roadmap_agent ← parallel fan-out
-               ╲   ╱
-           clean_state
-                  │
-            report_agent         ← Markdown report + tables
-                  │
-         cv_suggestion_agent     ← optional bullet rewrites
-                  │
-                END
+```mermaid
+flowchart TD
+    %% Styling
+    classDef userInput fill:#f9f9f9,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,border-radius:8px
+    classDef apiLayer fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,border-radius:8px
+    classDef orchestrator fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,border-radius:8px
+    classDef agent fill:#fff3e0,stroke:#f57c00,stroke-width:2px,border-radius:8px
+    classDef final fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,border-radius:8px
+
+    %% Nodes
+    User("👤 User (CV PDF + Job Description)"):::userInput
+    API("🚀 FastAPI (app/)<br/><i>POST /api/analyze</i>"):::apiLayer
+    
+    subgraph "🧠 LangGraph Workflow"
+        direction TB
+        ResumeAgent("📄 Resume Agent<br/><i>Extracts CV Data</i>"):::agent
+        JobAgent("💼 Job Agent<br/><i>Parses JD</i>"):::agent
+        
+        SkillAgent("🎯 Skill Agent<br/><i>Deterministic Match Score</i>"):::agent
+        GapAgent("🔍 Gap Agent<br/><i>Web-Search Enriched</i>"):::agent
+        
+        InterviewAgent("🎤 Interview Agent<br/><i>Custom Questions</i>"):::agent
+        RoadmapAgent("🗺️ Roadmap Agent<br/><i>Career Path</i>"):::agent
+        
+        CleanState("🧹 Clean State"):::orchestrator
+        ReportAgent("📊 Report Agent<br/><i>Markdown Tables</i>"):::final
+        CVSuggestionAgent("✍️ CV Suggestion Agent<br/><i>Bullet Rewrites</i>"):::final
+    end
+    
+    End("🏁 End"):::userInput
+
+    %% Connections
+    User --> API
+    API --> ResumeAgent & JobAgent
+    
+    ResumeAgent --> SkillAgent
+    JobAgent --> SkillAgent
+    
+    SkillAgent --> GapAgent
+    
+    GapAgent --> InterviewAgent & RoadmapAgent
+    
+    InterviewAgent --> CleanState
+    RoadmapAgent --> CleanState
+    
+    CleanState --> ReportAgent
+    ReportAgent --> CVSuggestionAgent
+    CVSuggestionAgent --> End
 ```
 
 ### Tech Stack
