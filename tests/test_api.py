@@ -7,9 +7,8 @@ Phase 4 compliance:
 - test_successful_analysis asserts exactly 200 and a real response body.
 """
 
-import io
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,8 +17,13 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("OPENAI_API_KEY", "test-key-123")
 
 from app.main import app
-from app.schemas.models import AnalysisResponse, FinalReport, ResumeAnalysis, JobAnalysis, SkillMatch
-
+from app.schemas.models import (
+    AnalysisResponse,
+    FinalReport,
+    JobAnalysis,
+    ResumeAnalysis,
+    SkillMatch,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -126,7 +130,9 @@ class TestAnalyzeEndpoint:
     def test_missing_file_returns_422(self, client):
         response = client.post(
             "/api/analyze",
-            data={"job_description": "A valid job description with at least 50 characters here"},
+            data={
+                "job_description": "A valid job description with at least 50 characters here"
+            },
         )
         assert response.status_code == 422
 
@@ -141,7 +147,9 @@ class TestAnalyzeEndpoint:
         response = client.post(
             "/api/analyze",
             files={"cv_file": ("resume.txt", b"plain text content", "text/plain")},
-            data={"job_description": "A valid job description with at least 50 characters here."},
+            data={
+                "job_description": "A valid job description with at least 50 characters here."
+            },
         )
         assert response.status_code == 400
 
@@ -149,7 +157,9 @@ class TestAnalyzeEndpoint:
         response = client.post(
             "/api/analyze",
             files={"cv_file": ("resume.pdf", b"", "application/pdf")},
-            data={"job_description": "A valid job description with at least 50 characters here."},
+            data={
+                "job_description": "A valid job description with at least 50 characters here."
+            },
         )
         assert response.status_code == 400
 
@@ -165,15 +175,25 @@ class TestAnalyzeEndpoint:
         """A file named .pdf but with non-PDF content should fail gracefully."""
         response = client.post(
             "/api/analyze",
-            files={"cv_file": ("resume.pdf", b"not a real pdf just fake content here", "application/pdf")},
-            data={"job_description": "A valid job description with at least 50 characters here."},
+            files={
+                "cv_file": (
+                    "resume.pdf",
+                    b"not a real pdf just fake content here",
+                    "application/pdf",
+                )
+            },
+            data={
+                "job_description": "A valid job description with at least 50 characters here."
+            },
         )
         # Should get 422 (parse error) not 500
         assert response.status_code in (400, 422)
 
     @patch("app.api.routes.run_analysis")
     @patch("app.api.routes.extract_text_from_pdf")
-    def test_successful_analysis(self, mock_extract, mock_run, client, minimal_pdf_bytes, fake_analysis_response):
+    def test_successful_analysis(
+        self, mock_extract, mock_run, client, minimal_pdf_bytes, fake_analysis_response
+    ):
         """
         A valid request with a real PDF and a long JD must return EXACTLY 200
         and a response body that matches AnalysisResponse schema.
@@ -210,10 +230,14 @@ class TestAnalyzeEndpoint:
 
     @patch("app.api.routes.run_analysis")
     @patch("app.api.routes.extract_text_from_pdf")
-    def test_error_response_never_contains_exception_text(self, mock_extract, mock_run, client, minimal_pdf_bytes):
+    def test_error_response_never_contains_exception_text(
+        self, mock_extract, mock_run, client, minimal_pdf_bytes
+    ):
         """Error responses must not leak raw exception messages."""
         mock_extract.return_value = "Some CV text that is long enough for analysis."
-        mock_run.side_effect = RuntimeError("Secret internal error with credentials xyz123")
+        mock_run.side_effect = RuntimeError(
+            "Secret internal error with credentials xyz123"
+        )
 
         response = client.post(
             "/api/analyze",
@@ -251,8 +275,9 @@ class TestAnalyzeEndpoint:
 class TestInputValidation:
     def test_job_description_minimum_length(self):
         """Validate that short JDs are caught early at the schema level."""
-        from app.schemas.models import AnalysisRequest
         from pydantic import ValidationError
+
+        from app.schemas.models import AnalysisRequest
 
         with pytest.raises(ValidationError):
             AnalysisRequest(job_description="Short")
@@ -278,14 +303,19 @@ class TestUploadLimits:
     def test_non_pdf_extension_rejected(self, client):
         response = client.post(
             "/api/analyze",
-            files={"cv_file": ("resume.docx", b"fake content", "application/octet-stream")},
-            data={"job_description": "A valid job description with at least 50 characters here."},
+            files={
+                "cv_file": ("resume.docx", b"fake content", "application/octet-stream")
+            },
+            data={
+                "job_description": "A valid job description with at least 50 characters here."
+            },
         )
         assert response.status_code == 400
 
     def test_oversized_pdf_by_content_length_header(self, client):
         """Files claiming oversized Content-Length should be rejected early."""
         from app.config import get_settings
+
         s = get_settings()
         max_bytes = s.max_pdf_size_mb * 1024 * 1024
         big_fake_pdf = b"%PDF-1.4" + b"0" * 100
@@ -293,7 +323,9 @@ class TestUploadLimits:
         response = client.post(
             "/api/analyze",
             files={"cv_file": ("resume.pdf", big_fake_pdf, "application/pdf")},
-            data={"job_description": "A valid job description with at least 50 characters here."},
+            data={
+                "job_description": "A valid job description with at least 50 characters here."
+            },
             headers={"Content-Length": str(max_bytes + 1024 * 1024 + 4096)},
         )
         # Should be rejected (413) or fall through to parse error (400/422)
@@ -310,7 +342,9 @@ class TestStreamEndpoint:
         """The /analyze/stream endpoint must exist and return 200 with event-stream."""
         with patch("app.api.routes.extract_text_from_pdf") as mock_extract:
             with patch("app.api.routes.run_analysis_stream") as mock_stream:
-                mock_extract.return_value = "Some CV text long enough for analysis processing."
+                mock_extract.return_value = (
+                    "Some CV text long enough for analysis processing."
+                )
 
                 async def fake_stream(*args, **kwargs):
                     yield 'data: {"node": "resume_agent", "status": "completed"}\n\n'
@@ -320,7 +354,9 @@ class TestStreamEndpoint:
 
                 response = client.post(
                     "/api/analyze/stream",
-                    files={"cv_file": ("resume.pdf", minimal_pdf_bytes, "application/pdf")},
+                    files={
+                        "cv_file": ("resume.pdf", minimal_pdf_bytes, "application/pdf")
+                    },
                     data={
                         "job_description": (
                             "Senior Python Developer with ML experience required. "

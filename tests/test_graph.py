@@ -9,14 +9,12 @@ Phase 4 compliance:
 
 from __future__ import annotations
 
-import operator
-from typing import Annotated
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.graph.graph import get_graph, build_graph
-from app.graph.state import CareerPilotState, get_initial_state
+from app.graph.graph import build_graph, get_graph
+from app.graph.state import get_initial_state
 from app.schemas.models import (
     JobAnalysis,
     ResumeAnalysis,
@@ -24,7 +22,6 @@ from app.schemas.models import (
     SkillMatch,
     WorkflowStep,
 )
-
 
 # ---------------------------------------------------------------------------
 # Graph structure
@@ -43,8 +40,13 @@ class TestGraphStructure:
         # LangGraph exposes the node names via the underlying graph object
         node_names = set(graph.get_graph().nodes.keys())
         expected = {
-            "resume_agent", "job_agent", "skill_agent",
-            "gap_agent", "interview_agent", "roadmap_agent", "report_agent",
+            "resume_agent",
+            "job_agent",
+            "skill_agent",
+            "gap_agent",
+            "interview_agent",
+            "roadmap_agent",
+            "report_agent",
         }
         for node in expected:
             assert node in node_names, f"Missing node: {node}"
@@ -114,8 +116,8 @@ class TestScoringLogic:
         assert score == 62
 
     def test_score_bounded_0_to_100(self):
-        for m in range(0, 10):
-            for miss in range(0, 10):
+        for m in range(10):
+            for miss in range(10):
                 score = compute_score(["x"] * m, ["y"] * miss, [])
                 assert 0 <= score <= 100
 
@@ -133,7 +135,10 @@ class TestPromptDelimiterSanitization:
         result = wrap_user_content("RESUME", malicious)
         # The raw delimiter must not appear verbatim in the wrapped output
         # (our delimiters wrap it but internal ones are redacted)
-        assert "<<<DATA_START>>> RESUME\n" not in result or "[REDACTED_DELIMITER]" in result
+        assert (
+            "<<<DATA_START>>> RESUME\n" not in result
+            or "[REDACTED_DELIMITER]" in result
+        )
 
     def test_injection_patterns_filtered(self):
         from app.agents.prompt_utils import wrap_user_content
@@ -150,7 +155,7 @@ class TestPromptDelimiterSanitization:
         assert normal in result
 
     def test_wrapped_output_has_delimiters(self):
-        from app.agents.prompt_utils import wrap_user_content, _OPEN, _CLOSE
+        from app.agents.prompt_utils import _CLOSE, _OPEN, wrap_user_content
 
         result = wrap_user_content("RESUME", "safe text")
         assert _OPEN in result
@@ -184,12 +189,12 @@ def fake_job_analysis():
 
 class TestFullGraph:
     @pytest.mark.asyncio
-    async def test_happy_path_reaches_report(self, fake_resume_analysis, fake_job_analysis):
+    async def test_happy_path_reaches_report(
+        self, fake_resume_analysis, fake_job_analysis
+    ):
         """Happy path: all agents succeed and final_report is populated."""
-        from app.schemas.models import (
-            SkillGaps, InterviewQuestions, CareerRoadmap, FinalReport
-        )
         from app.agents.report_agent import ReportSummary
+        from app.schemas.models import CareerRoadmap, InterviewQuestions
 
         mock_llm = AsyncMock()
 
@@ -210,7 +215,9 @@ class TestFullGraph:
                 ),  # skill_agent
                 SkillGaps(overall_gap_summary="Minor gaps."),  # gap_agent
                 InterviewQuestions(),  # interview_agent
-                CareerRoadmap(career_trajectory="Grow into leadership."),  # roadmap_agent
+                CareerRoadmap(
+                    career_trajectory="Grow into leadership."
+                ),  # roadmap_agent
                 ReportSummary(
                     executive_summary="Alice is a strong match.",
                     score_interpretation="66/100 is a good fit.",
@@ -224,17 +231,20 @@ class TestFullGraph:
 
         mock_llm.ainvoke.side_effect = side_effect
 
-        with patch("app.agents.resume_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.agents.job_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.agents.skill_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.agents.gap_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.agents.gap_agent.web_search", return_value=[]), \
-             patch("app.agents.interview_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.agents.roadmap_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.agents.report_agent.get_structured_llm", return_value=mock_llm), \
-             patch("app.tools.file_writer.save_analysis_json"), \
-             patch("app.tools.file_writer.save_report_markdown"):
-
+        with (
+            patch("app.agents.resume_agent.get_structured_llm", return_value=mock_llm),
+            patch("app.agents.job_agent.get_structured_llm", return_value=mock_llm),
+            patch("app.agents.skill_agent.get_structured_llm", return_value=mock_llm),
+            patch("app.agents.gap_agent.get_structured_llm", return_value=mock_llm),
+            patch("app.agents.gap_agent.web_search", return_value=[]),
+            patch(
+                "app.agents.interview_agent.get_structured_llm", return_value=mock_llm
+            ),
+            patch("app.agents.roadmap_agent.get_structured_llm", return_value=mock_llm),
+            patch("app.agents.report_agent.get_structured_llm", return_value=mock_llm),
+            patch("app.tools.file_writer.save_analysis_json"),
+            patch("app.tools.file_writer.save_report_markdown"),
+        ):
             graph = build_graph()
             initial = get_initial_state(
                 resume_text="Alice Smith — ML Engineer with Python and PyTorch. 5 years at Acme Corp.",
@@ -250,13 +260,22 @@ class TestFullGraph:
         assert final_state.get("skill_match") is not None
 
     @pytest.mark.asyncio
-    async def test_optional_agent_failure_continues(self, fake_resume_analysis, fake_job_analysis):
+    async def test_optional_agent_failure_continues(
+        self, fake_resume_analysis, fake_job_analysis
+    ):
         """If interview_agent fails permanently, roadmap and report still run."""
-        from app.schemas.models import SkillGaps, InterviewQuestions, CareerRoadmap
         from app.agents.report_agent import ReportSummary
+        from app.schemas.models import CareerRoadmap
 
-        call_counts = {"resume": 0, "job": 0, "skill": 0, "gap": 0,
-                       "interview": 0, "roadmap": 0, "report": 0}
+        call_counts = {
+            "resume": 0,
+            "job": 0,
+            "skill": 0,
+            "gap": 0,
+            "interview": 0,
+            "roadmap": 0,
+            "report": 0,
+        }
 
         async def resume_resp(msgs):
             call_counts["resume"] += 1
@@ -269,8 +288,10 @@ class TestFullGraph:
         async def skill_resp(msgs):
             call_counts["skill"] += 1
             return SkillMatch(
-                matched_skills=["Python"], missing_skills=["LangGraph"],
-                match_score=50, explanation="Moderate match."
+                matched_skills=["Python"],
+                missing_skills=["LangGraph"],
+                match_score=50,
+                explanation="Moderate match.",
             )
 
         async def gap_resp(msgs):
@@ -308,17 +329,27 @@ class TestFullGraph:
         report_llm = AsyncMock()
         report_llm.ainvoke.side_effect = report_resp
 
-        with patch("app.agents.resume_agent.get_structured_llm", return_value=resume_llm), \
-             patch("app.agents.job_agent.get_structured_llm", return_value=job_llm), \
-             patch("app.agents.skill_agent.get_structured_llm", return_value=skill_llm), \
-             patch("app.agents.gap_agent.get_structured_llm", return_value=gap_llm), \
-             patch("app.agents.gap_agent.web_search", return_value=[]), \
-             patch("app.agents.interview_agent.get_structured_llm", return_value=interview_llm), \
-             patch("app.agents.roadmap_agent.get_structured_llm", return_value=roadmap_llm), \
-             patch("app.agents.report_agent.get_structured_llm", return_value=report_llm), \
-             patch("app.tools.file_writer.save_analysis_json"), \
-             patch("app.tools.file_writer.save_report_markdown"):
-
+        with (
+            patch(
+                "app.agents.resume_agent.get_structured_llm", return_value=resume_llm
+            ),
+            patch("app.agents.job_agent.get_structured_llm", return_value=job_llm),
+            patch("app.agents.skill_agent.get_structured_llm", return_value=skill_llm),
+            patch("app.agents.gap_agent.get_structured_llm", return_value=gap_llm),
+            patch("app.agents.gap_agent.web_search", return_value=[]),
+            patch(
+                "app.agents.interview_agent.get_structured_llm",
+                return_value=interview_llm,
+            ),
+            patch(
+                "app.agents.roadmap_agent.get_structured_llm", return_value=roadmap_llm
+            ),
+            patch(
+                "app.agents.report_agent.get_structured_llm", return_value=report_llm
+            ),
+            patch("app.tools.file_writer.save_analysis_json"),
+            patch("app.tools.file_writer.save_report_markdown"),
+        ):
             graph = build_graph()
             initial = get_initial_state(
                 resume_text="Alice Smith — ML Engineer. Python. 3 years experience at Corp.",
@@ -350,7 +381,9 @@ class TestFullGraph:
         resume_llm = AsyncMock()
         resume_llm.ainvoke.side_effect = failing_resume
 
-        with patch("app.agents.resume_agent.get_structured_llm", return_value=resume_llm):
+        with patch(
+            "app.agents.resume_agent.get_structured_llm", return_value=resume_llm
+        ):
             result = await run_analysis(
                 resume_text="Alice Smith — ML Engineer. Python. 5 years experience at Corp.",
                 job_description=(

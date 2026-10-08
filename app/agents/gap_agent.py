@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Gap Analyzer Agent
 
 Prioritizes missing skills and explains why each gap matters.
@@ -54,7 +54,12 @@ async def gap_agent(state: CareerPilotState) -> dict:
 
     if not skill_match or not job_analysis:
         return {
-            "errors": [{"step": WorkflowStep.GAP_AGENT, "error": "Missing skill_match or job_analysis."}],
+            "errors": [
+                {
+                    "step": WorkflowStep.GAP_AGENT,
+                    "error": "Missing skill_match or job_analysis.",
+                }
+            ],
             "processing_log": ["GapAgent FAILED: missing prerequisite data"],
         }
 
@@ -63,6 +68,7 @@ async def gap_agent(state: CareerPilotState) -> dict:
     settings = get_settings()
     if settings.web_search_enabled and skill_match.missing_skills:
         from datetime import datetime
+
         year = datetime.now().year
         top_missing = skill_match.missing_skills[:3]
         job_title = job_analysis.job_title
@@ -71,19 +77,35 @@ async def gap_agent(state: CareerPilotState) -> dict:
             try:
                 results = await web_search(query, max_results=2)
                 web_snippets.extend(results)
-                logger.debug("[GapAgent] Web search '%s' -> %d results", query, len(results))
+                logger.debug(
+                    "[GapAgent] Web search '%s' -> %d results", query, len(results)
+                )
             except Exception as search_exc:
-                logger.warning("[GapAgent] Web search failed (non-fatal): %s", search_exc)
+                logger.warning(
+                    "[GapAgent] Web search failed (non-fatal): %s", search_exc
+                )
 
     context_parts = [
-        wrap_user_content("SKILL MATCH RESULTS", json.dumps(skill_match.model_dump(), indent=2)),
-        wrap_user_content("JOB REQUIREMENTS", json.dumps(job_analysis.model_dump(), indent=2)),
+        wrap_user_content(
+            "SKILL MATCH RESULTS", json.dumps(skill_match.model_dump(), indent=2)
+        ),
+        wrap_user_content(
+            "JOB REQUIREMENTS", json.dumps(job_analysis.model_dump(), indent=2)
+        ),
     ]
     if resume_analysis:
-        context_parts.append(wrap_user_content("CANDIDATE BACKGROUND", json.dumps(resume_analysis.model_dump(), indent=2)))
+        context_parts.append(
+            wrap_user_content(
+                "CANDIDATE BACKGROUND",
+                json.dumps(resume_analysis.model_dump(), indent=2),
+            )
+        )
     if web_snippets:
         context_parts.append(
-            wrap_user_content("WEB SEARCH RESULTS (learning resources)", "\n".join(f"- {s}" for s in web_snippets[:10]))
+            wrap_user_content(
+                "WEB SEARCH RESULTS (learning resources)",
+                "\n".join(f"- {s}" for s in web_snippets[:10]),
+            )
         )
 
     llm = get_structured_llm(SkillGaps)
@@ -95,11 +117,15 @@ async def gap_agent(state: CareerPilotState) -> dict:
     try:
         result: SkillGaps = await llm.ainvoke(messages)
         total_gaps = (
-            len(result.high_priority_gaps) + len(result.medium_priority_gaps) + len(result.low_priority_gaps)
+            len(result.high_priority_gaps)
+            + len(result.medium_priority_gaps)
+            + len(result.low_priority_gaps)
         )
         logger.info(
             "[GapAgent] Done. High: %d | Medium: %d | Low: %d",
-            len(result.high_priority_gaps), len(result.medium_priority_gaps), len(result.low_priority_gaps),
+            len(result.high_priority_gaps),
+            len(result.medium_priority_gaps),
+            len(result.low_priority_gaps),
         )
         return {
             "skill_gaps": result,

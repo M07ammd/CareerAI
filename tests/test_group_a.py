@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Group A reliability fixes:
   A1 - Transient exceptions propagate (retry logic fires)
   A2 - Critical agent failures return status="error"; optional produce "partial" + warnings
@@ -7,17 +7,14 @@ Tests for Group A reliability fixes:
 
 from __future__ import annotations
 
-import asyncio
-import functools
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # A1: Retry propagation
 # ---------------------------------------------------------------------------
+
 
 class _TransientError(ConnectionError):
     """Simulates a transient network error."""
@@ -74,7 +71,12 @@ async def test_agent_reraises_transient_error():
     from app.agents.resume_agent import resume_agent
 
     flaky_llm, get_count = _make_flaky_llm(fail_times=1)
-    state = {"resume_text": "A" * 100, "job_description": "", "errors": [], "completed_steps": []}
+    state = {
+        "resume_text": "A" * 100,
+        "job_description": "",
+        "errors": [],
+        "completed_steps": [],
+    }
 
     with patch("app.agents.resume_agent.get_structured_llm", return_value=flaky_llm):
         # First call raises — agent should re-raise, not swallow
@@ -90,7 +92,12 @@ async def test_agent_succeeds_after_transient_error():
     from app.agents.resume_agent import resume_agent
 
     flaky_llm, get_count = _make_flaky_llm(fail_times=0)
-    state = {"resume_text": "A" * 100, "job_description": "", "errors": [], "completed_steps": []}
+    state = {
+        "resume_text": "A" * 100,
+        "job_description": "",
+        "errors": [],
+        "completed_steps": [],
+    }
 
     with patch("app.agents.resume_agent.get_structured_llm", return_value=flaky_llm):
         result = await resume_agent(state)
@@ -103,9 +110,11 @@ async def test_agent_succeeds_after_transient_error():
 # A2: Critical vs optional failure semantics
 # ---------------------------------------------------------------------------
 
+
 def _make_error_state(failed_step: str) -> dict:
     """Produce a fake final_state where one agent wrote an error."""
     from app.schemas.models import WorkflowStep
+
     step_map = {
         "resume_agent": WorkflowStep.RESUME_AGENT,
         "job_agent": WorkflowStep.JOB_AGENT,
@@ -135,6 +144,7 @@ def _make_error_state(failed_step: str) -> dict:
 @pytest.mark.asyncio
 async def test_resume_agent_critical_failure_returns_error():
     from app.services.analysis_service import run_analysis
+
     state = _make_error_state("resume_agent")
 
     with patch("app.services.analysis_service.get_graph") as mock_graph:
@@ -149,6 +159,7 @@ async def test_resume_agent_critical_failure_returns_error():
 @pytest.mark.asyncio
 async def test_job_agent_critical_failure_returns_error():
     from app.services.analysis_service import run_analysis
+
     state = _make_error_state("job_agent")
 
     with patch("app.services.analysis_service.get_graph") as mock_graph:
@@ -161,6 +172,7 @@ async def test_job_agent_critical_failure_returns_error():
 @pytest.mark.asyncio
 async def test_skill_agent_critical_failure_returns_error():
     from app.services.analysis_service import run_analysis
+
     state = _make_error_state("skill_agent")
 
     with patch("app.services.analysis_service.get_graph") as mock_graph:
@@ -173,9 +185,7 @@ async def test_skill_agent_critical_failure_returns_error():
 @pytest.mark.asyncio
 async def test_optional_agent_failure_returns_partial_with_warning():
     """interview_agent or roadmap_agent failure → status partial, has warning."""
-    from app.schemas.models import (
-        JobAnalysis, ResumeAnalysis, SkillMatch, WorkflowStep
-    )
+    from app.schemas.models import JobAnalysis, ResumeAnalysis, SkillMatch, WorkflowStep
     from app.services.analysis_service import run_analysis
 
     # Minimal fake objects to simulate successful critical agents
@@ -195,7 +205,11 @@ async def test_optional_agent_failure_returns_partial_with_warning():
         "career_roadmap": None,
         "final_report": None,
         "current_step": WorkflowStep.INTERVIEW_AGENT,
-        "completed_steps": [WorkflowStep.RESUME_AGENT, WorkflowStep.JOB_AGENT, WorkflowStep.SKILL_AGENT],
+        "completed_steps": [
+            WorkflowStep.RESUME_AGENT,
+            WorkflowStep.JOB_AGENT,
+            WorkflowStep.SKILL_AGENT,
+        ],
         "errors": [{"step": "interview_agent", "error": "LLM timeout"}],
         "web_search_results": [],
         "processing_log": [],
@@ -216,15 +230,18 @@ async def test_optional_agent_failure_returns_partial_with_warning():
 # A3: llm.py uses settings (no hardcoded openrouter model/base_url)
 # ---------------------------------------------------------------------------
 
+
 def test_llm_uses_settings_model():
     """LLM model should come from settings, not be hardcoded."""
-    import importlib
-    import app.llm as llm_module
 
     source = open("app/llm.py").read()
     # Should NOT contain hardcoded openrouter/free or openrouter.ai base URL
-    assert "openrouter/free" not in source, "Hardcoded model 'openrouter/free' found in llm.py"
-    assert "openrouter.ai/api/v1" not in source, "Hardcoded OpenRouter base_url found in llm.py"
+    assert "openrouter/free" not in source, (
+        "Hardcoded model 'openrouter/free' found in llm.py"
+    )
+    assert "openrouter.ai/api/v1" not in source, (
+        "Hardcoded OpenRouter base_url found in llm.py"
+    )
 
 
 def test_llm_reads_base_url_from_settings():
@@ -244,5 +261,6 @@ def test_llm_reads_base_url_from_settings():
 def test_llm_no_base_url_by_default():
     """Without LLM_BASE_URL set, llm_base_url should be None."""
     from app.config import Settings
+
     s = Settings(llm_provider="openai", openai_api_key="sk-test")
     assert s.llm_base_url is None

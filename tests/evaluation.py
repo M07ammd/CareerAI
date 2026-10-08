@@ -19,12 +19,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import statistics
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional
 
 # ── Path setup so we can import from the app package ─────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,8 +35,8 @@ if str(ROOT) not in sys.path:
 
 def check_score_in_range(
     score: float,
-    min_score: Optional[float] = None,
-    max_score: Optional[float] = None,
+    min_score: float | None = None,
+    max_score: float | None = None,
 ) -> bool:
     """Return True if *score* falls within [min_score, max_score]."""
     if min_score is not None and score < min_score:
@@ -49,9 +47,9 @@ def check_score_in_range(
 
 
 def check_missing_skills_count(
-    missing_skills: List[str],
-    min_count: Optional[int] = None,
-    max_count: Optional[int] = None,
+    missing_skills: list[str],
+    min_count: int | None = None,
+    max_count: int | None = None,
 ) -> bool:
     count = len(missing_skills)
     if min_count is not None and count < min_count:
@@ -347,8 +345,12 @@ class FakeLLMForEval:
 
     async def run(self, resume_text: str, job_description: str):
         from app.schemas.models import (
-            AnalysisResponse, ResumeAnalysis, JobAnalysis, SkillMatch,
+            AnalysisResponse,
+            JobAnalysis,
+            ResumeAnalysis,
+            SkillMatch,
         )
+
         # Deterministic fake scoring based on keyword overlap
         resume_words = set(resume_text.lower().split())
         jd_words = set(job_description.lower().split())
@@ -392,23 +394,20 @@ async def run_pair_n_times(pair: dict, n: int = 5, dry_run: bool = False) -> dic
                 fake = FakeLLMForEval()
                 result = await fake.run(pair["resume_text"], pair["job_description"])
                 score = result.skill_match.match_score if result.skill_match else -1
-                missing = len(result.skill_match.missing_skills) if result.skill_match else 0
+                missing = (
+                    len(result.skill_match.missing_skills) if result.skill_match else 0
+                )
             else:
                 from app.services.analysis_service import run_analysis
+
                 result = await run_analysis(
                     resume_text=pair["resume_text"],
                     job_description=pair["job_description"],
                     request_id=f"eval-{pair['name'][:10]}-run-{run_idx}",
                 )
-                score = (
-                    result.skill_match.match_score
-                    if result.skill_match
-                    else -1
-                )
+                score = result.skill_match.match_score if result.skill_match else -1
                 missing = (
-                    len(result.skill_match.missing_skills)
-                    if result.skill_match
-                    else 0
+                    len(result.skill_match.missing_skills) if result.skill_match else 0
                 )
 
             if score >= 0:
@@ -465,7 +464,7 @@ def print_summary_table(results: list[dict]) -> None:
 
     all_pass = True
     for r in results:
-        name = r["name"][:widths[0]]
+        name = r["name"][: widths[0]]
         runs = str(r["runs"])
         fail = str(r["failures"])
         mean = f"{r['mean']:.1f}" if r["mean"] is not None else "N/A"
@@ -478,9 +477,8 @@ def print_summary_table(results: list[dict]) -> None:
         if not passed:
             all_pass = False
         row = "  ".join(
-            v.ljust(w) for v, w in zip(
-                [name, runs, fail, mean, std, exp_range, ok], widths
-            )
+            v.ljust(w)
+            for v, w in zip([name, runs, fail, mean, std, exp_range, ok], widths)
         )
         print(row)
 
@@ -509,7 +507,9 @@ async def main(n_runs: int = 5, dry_run: bool = False) -> None:
         elapsed = time.time() - t0
         status = "✓" if (res["score_in_range"] and res["missing_count_ok"]) else "✗"
         mean_str = f"{res['mean']:.1f}" if res["mean"] is not None else "N/A"
-        print(f"    Mean score: {mean_str} (std: {res['std']:.1f}) — {status} [{elapsed:.1f}s]")
+        print(
+            f"    Mean score: {mean_str} (std: {res['std']:.1f}) — {status} [{elapsed:.1f}s]"
+        )
         results.append(res)
 
     print_summary_table(results)
@@ -532,10 +532,16 @@ class TestEvaluationDataset:
             assert "name" in pair
             assert "resume_text" in pair
             assert "job_description" in pair
-            assert len(pair["resume_text"].strip()) > 50, f"{pair['name']}: resume too short"
-            assert len(pair["job_description"].strip()) > 50, f"{pair['name']}: JD too short"
+            assert len(pair["resume_text"].strip()) > 50, (
+                f"{pair['name']}: resume too short"
+            )
+            assert len(pair["job_description"].strip()) > 50, (
+                f"{pair['name']}: JD too short"
+            )
             # Must have at least one bound
-            has_score_bound = "expected_score_min" in pair or "expected_score_max" in pair
+            has_score_bound = (
+                "expected_score_min" in pair or "expected_score_max" in pair
+            )
             assert has_score_bound, f"{pair['name']}: needs a score bound"
 
     def test_score_range_helper(self):

@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Union
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,9 @@ def extract_text_from_pdf(
     if file_content[:4] != b"%PDF":
         raise ValueError("File does not appear to be a valid PDF (bad magic bytes).")
 
-    text = _try_pymupdf(file_content, max_pages) or _try_pdfplumber(file_content, max_pages)
+    text = _try_pymupdf(file_content, max_pages) or _try_pdfplumber(
+        file_content, max_pages
+    )
 
     if not text or len(text.strip()) < 50:
         raise ValueError(
@@ -58,11 +59,17 @@ def extract_text_from_pdf(
         )
 
     cleaned = _clean_text(text)
-    logger.info("Extracted %d characters from PDF (%d byte input)", len(cleaned), len(file_content))
+    logger.info(
+        "Extracted %d characters from PDF (%d byte input)",
+        len(cleaned),
+        len(file_content),
+    )
 
     # Truncate to max_chars to stay within LLM context limits
     if len(cleaned) > max_chars:
-        logger.warning("Resume text truncated from %d to %d chars", len(cleaned), max_chars)
+        logger.warning(
+            "Resume text truncated from %d to %d chars", len(cleaned), max_chars
+        )
         cleaned = cleaned[:max_chars]
 
     return cleaned
@@ -89,6 +96,7 @@ def _try_pdfplumber(content: bytes, max_pages: int) -> str:
     """Attempt extraction with pdfplumber."""
     try:
         import io
+
         import pdfplumber  # type: ignore
 
         with pdfplumber.open(io.BytesIO(content)) as pdf:
@@ -102,7 +110,7 @@ def _try_pdfplumber(content: bytes, max_pages: int) -> str:
         return ""
 
 
-def extract_text_from_file(file_path: Union[str, Path]) -> str:
+def extract_text_from_file(file_path: str | Path) -> str:
     """Convenience wrapper to extract text from a PDF path."""
     path = Path(file_path)
     if not path.exists():

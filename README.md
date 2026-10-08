@@ -1,191 +1,216 @@
-# CareerPilot AI 🚀
+# CareerPilot AI
 
-CareerPilot AI is an Agentic AI Career Assistant built with **LangGraph**. It analyzes a candidate's CV (PDF) and a target Job Description to provide a comprehensive, personalized career report. 
-
-Unlike traditional semantic search or RAG-based systems, CareerPilot utilizes a multi-agent workflow where specialized AI agents sequentially process and enrich the data to provide deep insights, actionable recommendations, and a concrete learning roadmap.
+CareerPilot AI is a multi-agent career intelligence tool built with **LangGraph + FastAPI**. It analyzes a candidate's CV (PDF) against a target Job Description and produces a comprehensive, evidence-based career report with a deterministic match score, gap analysis, interview prep, roadmap, and actionable CV rewrites.
 
 ---
 
-## Features
+## Architecture
 
-- **Resume Parsing:** Extracts structured data (skills, experience, education, ML/AI focus) directly from a PDF.
-- **Job Analysis:** Deconstructs job descriptions to identify required vs. preferred skills and key responsibilities.
-- **Skill Matching:** Compares candidate skills with job requirements, outputting a calibrated 0–100 match score with a breakdown of matched, missing, and partial skills.
-- **Gap Analysis:** Prioritizes missing skills (High, Medium, Low) and provides reasons for their importance, enriched with web search.
-- **Interview Preparation:** Generates personalized Technical, Project, Behavioral, and HR questions based on the exact overlap (and gaps) between the CV and JD.
-- **Career Roadmap:** Synthesizes gaps into actionable Immediate (0-2w), Short-term (1-3m), and Long-term (3-12m) milestones, suggesting specific projects and certifications.
-- **Final Report Generation:** Compiles all agent outputs into a beautiful, human-readable markdown report with an executive summary and final hiring probability assessment.
-
----
-
-## Architecture Diagram
-
-```mermaid
-flowchart TD
-    A[User Inputs: CV PDF & Job Description] --> B(Supervisor)
-    
-    B --> C[Resume Agent]
-    C --> B
-    
-    B --> D[Job Analysis Agent]
-    D --> B
-    
-    B --> E[Skill Matching Agent]
-    E --> B
-    
-    B --> F[Gap Analyzer Agent]
-    F --> B
-    
-    B --> G[Interview Agent]
-    G --> B
-    
-    B --> H[Career Roadmap Agent]
-    H --> B
-    
-    B --> I[Report Generator Agent]
-    I --> B
-    
-    B --> J[END]
+```
+User (CV PDF + JD)
+       │
+       ▼
+  FastAPI (app/)
+       │ POST /api/analyze
+       ▼
+  LangGraph workflow
+  ┌─────────────┐   ┌─────────────┐
+  │ resume_agent│   │  job_agent  │  ← parallel fan-out
+  └──────┬──────┘   └──────┬──────┘
+         │                 │
+         └────────┬────────┘
+                  ▼
+            skill_agent          ← deterministic 0–100 score
+                  │
+            gap_agent            ← web-search enriched
+               ╱   ╲
+  interview_agent  roadmap_agent ← parallel fan-out
+               ╲   ╱
+           clean_state
+                  │
+            report_agent         ← Markdown report + tables
+                  │
+         cv_suggestion_agent     ← optional bullet rewrites
+                  │
+                END
 ```
 
 ### Tech Stack
-- **AI/Orchestration:** LangGraph, LangChain, Pydantic (Structured Outputs)
-- **Backend:** FastAPI, PyMuPDF (PDF Extraction), Uvicorn
-- **Frontend:** React, Vite, Vanilla CSS (Glassmorphism & Gradients)
-- **Deployment:** Docker, Docker Compose
+
+| Layer | Technology |
+|---|---|
+| AI orchestration | LangGraph, LangChain, Pydantic structured outputs |
+| Backend | FastAPI 0.115, Uvicorn, PyMuPDF / pdfplumber |
+| Frontend | React 19, Vite, TailwindCSS, shadcn/ui, lucide-react |
+| Search | Tavily (primary) → Serper (fallback) |
+| Deployment | Docker, Docker Compose, nginx |
+
+---
+
+## Scoring Method
+
+The match score is computed **deterministically** in `skill_agent.py` (no LLM hallucination):
+
+- Each **matched** skill contributes `100 / total_skills` points.
+- Each **partial** match contributes half that.
+- Missing skills contribute nothing.
+- Score is clamped to `[0, 100]`.
+
+The LLM is used only to produce the narrative explanation, not the numeric score.
 
 ---
 
 ## Project Structure
 
 ```
-careerpilot-ai/
-│
-├── backend/                  # FastAPI & LangGraph backend
-│   ├── agents/               # Individual LangGraph node functions
-│   ├── api/                  # FastAPI routes
-│   ├── graph/                # State definitions and router
-│   ├── schemas/              # Pydantic models for structured output
-│   ├── services/             # Orchestration service
-│   ├── tools/                # PDF parsing, web search, file saving
-│   ├── config.py             # Env config loader
-│   ├── llm.py                # LLM factory
-│   └── main.py               # FastAPI entry point
-│
-├── frontend/                 # React + Vite application
-│   ├── public/
-│   └── src/
-│       ├── components/       # UI Cards (Score, Gap, Roadmap, etc.)
-│       ├── hooks/            # Custom React hooks (useFileUpload)
-│       ├── App.jsx           # Main React component
-│       ├── api.js            # API client
-│       ├── index.css         # CSS Design system
-│       └── main.jsx          # React entry point
-│
-├── tests/                    # Pytest test suite
-│
-├── data/                     # Output directory for saved reports & JSONs
-├── .env.example              # Environment variables template
-├── docker-compose.yml        # Docker composition
-├── Dockerfile.backend        # Backend image definition
-├── Dockerfile.frontend       # Frontend image definition
-├── requirements.txt          # Python dependencies
-└── README.md                 # You are here
+CareerAI/
+├── app/
+│   ├── agents/           # LangGraph node functions (one file per agent)
+│   │   ├── agent_runner.py        # Transient-error detection + is_transient()
+│   │   ├── cv_suggestion_agent.py # Optional CV bullet rewriter
+│   │   ├── gap_agent.py           # Gap analysis + web search
+│   │   ├── interview_agent.py     # Personalised interview questions
+│   │   ├── job_agent.py           # Job description parser
+│   │   ├── prompt_utils.py        # Anti-injection wrapper + ANTI_INJECTION_INSTRUCTION
+│   │   ├── report_agent.py        # Final report + Markdown tables
+│   │   ├── resume_agent.py        # CV parser
+│   │   ├── roadmap_agent.py       # Career roadmap
+│   │   └── skill_agent.py         # Deterministic skill match + score
+│   ├── api/
+│   │   ├── dependencies.py        # API-key auth middleware
+│   │   └── routes.py              # /analyze, /analyze/stream, /compare, /interview
+│   ├── graph/
+│   │   ├── graph.py               # build_graph() with RetryPolicy
+│   │   └── state.py               # CareerPilotState TypedDict
+│   ├── schemas/models.py          # All Pydantic schemas
+│   ├── services/
+│   │   ├── analysis_service.py    # run_analysis() + run_analysis_stream()
+│   │   ├── compare_service.py     # Concurrent multi-JD comparison
+│   │   └── interview_service.py   # Interview answer evaluation
+│   ├── tools/
+│   │   ├── pdf_parser.py          # PyMuPDF → pdfplumber fallback
+│   │   ├── web_search.py          # Tavily → Serper fallback
+│   │   └── file_writer.py         # Optional report persistence
+│   ├── config.py                  # Pydantic Settings (all env vars)
+│   ├── llm.py                     # LLM factory (openai / google / anthropic)
+│   └── main.py                    # FastAPI app + middleware
+├── frontend/                      # React + Vite SPA
+├── tests/                         # Pytest suite (no real API calls)
+├── .env.example                   # All env vars documented
+├── .ruff.toml                     # Ruff lint config
+├── docker-compose.yml
+├── Dockerfile.backend             # python:3.12-slim
+├── Dockerfile.frontend            # node + nginx
+├── requirements.txt               # Runtime deps
+└── requirements.lock              # Pinned lockfile (pip-compile)
 ```
 
 ---
 
-## Installation & Setup
+## Environment Variables
 
-### Prerequisites
-- Python 3.10+ (if running locally)
-- Node.js 20+ (if running locally)
-- Docker & Docker Compose (if running via Docker)
-- An OpenAI API Key (or Google/Anthropic, configurable)
+Copy `.env.example` to `.env` and fill in your secrets.
 
-### Environment Variables
-Copy `.env.example` to `.env` in the root directory:
-```bash
-cp .env.example .env
-```
-Open `.env` and fill in your API keys (e.g., `OPENAI_API_KEY`). You can optionally configure `TAVILY_API_KEY` for enhanced web search.
+| Variable | Default | Description |
+|---|---|---|
+| `LLM_PROVIDER` | `openai` | `openai` \| `google` \| `anthropic` |
+| `LLM_MODEL` | `gpt-4o-mini` | Model name for the selected provider |
+| `LLM_BASE_URL` | _(empty)_ | Optional custom base URL (e.g. OpenRouter) |
+| `OPENAI_API_KEY` | _(required)_ | OpenAI API key |
+| `GOOGLE_API_KEY` | _(optional)_ | Google API key |
+| `ANTHROPIC_API_KEY` | _(optional)_ | Anthropic API key |
+| `WEB_SEARCH_ENABLED` | `true` | Toggle web search enrichment |
+| `TAVILY_API_KEY` | _(optional)_ | Tavily search key (primary) |
+| `SERPER_API_KEY` | _(optional)_ | Serper search key (fallback) |
+| `API_KEY` | _(empty)_ | Enable `X-API-Key` auth when set |
+| `FORWARDED_ALLOW_IPS` | _(empty)_ | IPs trusted for `X-Forwarded-For` |
+| `RATE_LIMIT_PER_MINUTE` | `10` | Max `/analyze` requests per IP per minute |
+| `MAX_PDF_SIZE_MB` | `10` | Max upload size |
+| `MAX_PDF_PAGES` | `50` | Max pages extracted from PDF |
+| `MAX_RESUME_CHARS` | `30000` | Max chars kept from resume text |
+| `MAX_JD_CHARS` | `15000` | Max chars accepted in job description |
+| `SAVE_REPORTS` | `false` | Persist JSON + Markdown reports to disk |
+| `REPORT_OUTPUT_DIR` | `data/reports` | Where to save reports |
+| `MAX_AGENT_RETRIES` | `2` | Retry attempts per agent on transient errors |
+| `AGENT_TIMEOUT_SECONDS` | `120` | Per-agent timeout |
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `DEBUG` | `false` | Enable debug mode |
 
 ---
 
 ## How to Run
 
 ### Option 1: Docker (Recommended)
-You can spin up both the frontend and backend using Docker Compose:
+
 ```bash
+cp .env.example .env
+# Edit .env and add OPENAI_API_KEY=sk-...
 docker compose up --build
 ```
-- Frontend will be available at: `http://localhost:80` (or `http://localhost` depending on your OS)
-- Backend API will be at: `http://localhost:8000/api`
-- API Docs: `http://localhost:8000/docs`
+
+- Frontend: `http://localhost`
+- Backend API: `http://localhost:8000/api`
+- API docs: `http://localhost:8000/docs`
 
 ### Option 2: Local Development
-**1. Start the Backend:**
+
 ```bash
-# Create a virtual environment
+# Backend
 python -m venv venv
-# Activate it (Windows)
-venv\Scripts\activate
-# Activate it (Mac/Linux)
-source venv/bin/activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Mac/Linux
 
-# Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.lock
+cp .env.example .env            # fill in OPENAI_API_KEY
 
-# Run the FastAPI server
-cd backend
-python main.py
-# Server runs on http://localhost:8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**2. Start the Frontend:**
 ```bash
-# Open a new terminal
+# Frontend (separate terminal)
 cd frontend
 npm install
 npm run dev
-# Frontend runs on http://localhost:5173
+# → http://localhost:5173
 ```
 
 ---
 
-## API Usage
+## API Endpoints
 
-The main endpoint is `POST /api/analyze`. It expects a `multipart/form-data` payload containing:
-- `cv_file`: The PDF file (max 10MB)
-- `job_description`: Text string (min 50 characters)
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/analyze` | Full CV + JD analysis (JSON response) |
+| `POST` | `/api/analyze/stream` | Same analysis, streamed as SSE events |
+| `POST` | `/api/compare` | Compare CV against multiple JDs concurrently |
+| `POST` | `/api/interview/evaluate` | Evaluate a candidate's interview answer |
+| `GET` | `/api/health` | Health check |
 
-Example using `curl`:
+### Example
+
 ```bash
-curl -X POST "http://localhost:8000/api/analyze" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "cv_file=@/path/to/your/resume.pdf" \
-  -F "job_description=Senior Machine Learning Engineer requirements..."
+curl -X POST http://localhost:8000/api/analyze \
+  -F "cv_file=@resume.pdf" \
+  -F "job_description=Senior ML Engineer with 5+ years Python..."
 ```
 
 ---
 
-## Testing & Evaluation
+## Testing
 
-Tests cover Pydantic schemas, agent logic (with mocked LLMs), FastAPI endpoints, and LangGraph routing.
-
-Run the test suite from the root folder:
 ```bash
-pytest tests/
+pip install -r requirements-dev.txt
+
+# All tests (no real API keys needed — LLMs are mocked)
+pytest tests/ -v --ignore=tests/evaluation.py
+
+# Lint
+python -m ruff check app/ tests/
 ```
 
-We also included an evaluation file (`tests/evaluation.py`) with sample CVs and JDs to test matching bounds and logic.
-
----
-
-## Future Improvements
-
-- Add OAuth/Auth0 for user authentication to store personal roadmaps.
-- Implement streaming for the frontend so users can read the report as it is being generated.
-- Add real-time web socket updates for agent progress instead of polling/timers.
-- Integrate memory into the graph for multi-turn interview simulations (Grill-Me feature).
+The suite covers:
+- Pydantic schema validation
+- Agent logic with mocked LLMs (retries, error handling)
+- FastAPI endpoints (auth, rate limit, input validation)
+- LangGraph graph routing
+- Security controls (injection prevention, PII logging, API key auth)

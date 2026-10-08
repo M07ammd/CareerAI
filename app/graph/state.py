@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - LangGraph State
 
 Defines the shared TypedDict state passed between all agents.
@@ -7,7 +7,7 @@ Defines the shared TypedDict state passed between all agents.
 from __future__ import annotations
 
 import operator
-from typing import Annotated, Any, List, Optional
+from typing import Annotated
 
 from typing_extensions import TypedDict
 
@@ -19,7 +19,6 @@ from app.schemas.models import (
     ResumeAnalysis,
     SkillGaps,
     SkillMatch,
-    WorkflowStep,
 )
 
 
@@ -30,27 +29,29 @@ class AgentError(TypedDict):
 
 class CareerPilotState(TypedDict):
     # ---- User inputs -------------------------------------------------------
-    resume_text: str                         # Raw text extracted from CV PDF
-    job_description: str                     # Raw job description text
+    resume_text: str  # Raw text extracted from CV PDF
+    job_description: str  # Raw job description text
 
     # ---- Agent outputs -----------------------------------------------------
-    resume_analysis: Optional[ResumeAnalysis]
-    job_analysis: Optional[JobAnalysis]
-    skill_match: Optional[SkillMatch]
-    skill_gaps: Optional[SkillGaps]
-    interview_questions: Optional[InterviewQuestions]
-    career_roadmap: Optional[CareerRoadmap]
-    final_report: Optional[FinalReport]
+    resume_analysis: ResumeAnalysis | None
+    job_analysis: JobAnalysis | None
+    skill_match: SkillMatch | None
+    skill_gaps: SkillGaps | None
+    interview_questions: InterviewQuestions | None
+    career_roadmap: CareerRoadmap | None
+    final_report: FinalReport | None
 
     # ---- Workflow control --------------------------------------------------
-    completed_steps: Annotated[List[str], operator.add]   # Accumulate completed steps
+    completed_steps: Annotated[list[str], operator.add]  # Accumulate completed steps
 
     # ---- Error tracking ----------------------------------------------------
-    errors: Annotated[List[AgentError], operator.add]
+    errors: Annotated[list[AgentError], operator.add]
 
     # ---- Metadata ----------------------------------------------------------
-    web_search_results: Annotated[List[str], operator.add]   # Accumulated search snippets
-    processing_log: Annotated[List[str], operator.add]       # Human-readable log
+    web_search_results: Annotated[
+        list[str], operator.add
+    ]  # Accumulated search snippets
+    processing_log: Annotated[list[str], operator.add]  # Human-readable log
 
 
 def get_initial_state(resume_text: str, job_description: str) -> CareerPilotState:

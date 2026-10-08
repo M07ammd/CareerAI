@@ -27,9 +27,15 @@ logger = logging.getLogger(__name__)
 
 class ReportSummary(BaseModel):
     executive_summary: str = Field(description="3-5 sentence executive summary")
-    score_interpretation: str = Field(description="What the score means and what it implies")
-    hiring_probability: str = Field(description="Estimated likelihood of success: Low / Medium / High")
-    top_recommendations: str = Field(description="MUST be a Markdown table with exactly two columns: 'Finding' and 'Evidence from CV'.")
+    score_interpretation: str = Field(
+        description="What the score means and what it implies"
+    )
+    hiring_probability: str = Field(
+        description="Estimated likelihood of success: Low / Medium / High"
+    )
+    top_recommendations: str = Field(
+        description="MUST be a Markdown table with exactly two columns: 'Finding' and 'Evidence from CV'."
+    )
     cv_bullet_rewrites: list[CVBulletRewrite] = Field(
         default_factory=list,
         description="Suggested rewrites for 2-3 CV bullets to better align with the job",
@@ -165,10 +171,18 @@ async def report_agent(state: CareerPilotState) -> dict:
         try:
             save_report_markdown(md, candidate_name)
             all_data = {
-                "resume_analysis": state.get("resume_analysis", {}).model_dump() if state.get("resume_analysis") else None,
-                "job_analysis": state.get("job_analysis", {}).model_dump() if state.get("job_analysis") else None,
-                "skill_match": state.get("skill_match", {}).model_dump() if state.get("skill_match") else None,
-                "skill_gaps": state.get("skill_gaps", {}).model_dump() if state.get("skill_gaps") else None,
+                "resume_analysis": state.get("resume_analysis", {}).model_dump()
+                if state.get("resume_analysis")
+                else None,
+                "job_analysis": state.get("job_analysis", {}).model_dump()
+                if state.get("job_analysis")
+                else None,
+                "skill_match": state.get("skill_match", {}).model_dump()
+                if state.get("skill_match")
+                else None,
+                "skill_gaps": state.get("skill_gaps", {}).model_dump()
+                if state.get("skill_gaps")
+                else None,
                 "final_report": final_report.model_dump(),
             }
             save_analysis_json(all_data, candidate_name)

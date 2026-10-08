@@ -9,15 +9,29 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import (
+    APIRouter,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
 
-from app.config import get_settings
 from app.api.dependencies import limiter
-from app.schemas.models import AnalysisResponse, HealthResponse, InterviewTurnRequest, InterviewTurnResponse, CompareResponse
+from app.config import get_settings
+from app.schemas.models import (
+    AnalysisResponse,
+    CompareResponse,
+    HealthResponse,
+    InterviewTurnRequest,
+    InterviewTurnResponse,
+)
 from app.services.analysis_service import run_analysis, run_analysis_stream
-from app.services.interview_service import handle_interview_turn
 from app.services.compare_service import run_comparison
+from app.services.interview_service import handle_interview_turn
 from app.tools.pdf_parser import extract_text_from_pdf
 
 logger = logging.getLogger(__name__)
@@ -145,7 +159,9 @@ async def analyze_career(
     # ---- Early size check via Content-Length header -----------------------
     # Reject before reading the body if the client declared a size.
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > max_bytes + 4096:  # +4096 for form overhead
+    if (
+        content_length and int(content_length) > max_bytes + 4096
+    ):  # +4096 for form overhead
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"PDF file exceeds maximum size of {s.max_pdf_size_mb}MB.",
@@ -191,7 +207,9 @@ async def analyze_career(
         )
 
     # ---- Run the analysis pipeline -----------------------------------------
-    logger.info("[%s] Starting analysis pipeline. JD: %d chars", req_id, len(job_description))
+    logger.info(
+        "[%s] Starting analysis pipeline. JD: %d chars", req_id, len(job_description)
+    )
     try:
         result = await run_analysis(
             resume_text=resume_text,
@@ -204,7 +222,10 @@ async def analyze_career(
     if result.status == "error":
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"message": result.error_message or "Analysis failed.", "request_id": req_id},
+            detail={
+                "message": result.error_message or "Analysis failed.",
+                "request_id": req_id,
+            },
         )
 
     return result
@@ -278,8 +299,10 @@ async def analyze_career_stream(
 
     return StreamingResponse(
         run_analysis_stream(resume_text, job_description.strip(), req_id),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
     )
+
+
 # ---------------------------------------------------------------------------
 # Phase 6: Interview and Compare Endpoints
 # ---------------------------------------------------------------------------
@@ -316,8 +339,7 @@ async def compare_jobs(
     request: Request,
     cv_file: Annotated[UploadFile, File(description="Resume/CV in PDF format")],
     job_descriptions: Annotated[
-        list[str],
-        Form(description="List of job descriptions to compare against")
+        list[str], Form(description="List of job descriptions to compare against")
     ],
 ) -> CompareResponse:
     """
@@ -360,7 +382,9 @@ async def compare_jobs(
             detail="Uploaded file is empty.",
         )
 
-    logger.info("[%s] Extracting text from PDF for compare (%d bytes)", req_id, len(content))
+    logger.info(
+        "[%s] Extracting text from PDF for compare (%d bytes)", req_id, len(content)
+    )
     try:
         resume_text = await asyncio.to_thread(
             extract_text_from_pdf,

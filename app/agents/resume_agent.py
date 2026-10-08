@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Resume Agent
 
 Extracts structured information from the candidate CV text.
@@ -49,7 +49,12 @@ async def resume_agent(state: CareerPilotState) -> dict:
     if not resume_text or len(resume_text.strip()) < 50:
         logger.error("[ResumeAgent] Resume text is empty or too short")
         return {
-            "errors": [{"step": WorkflowStep.RESUME_AGENT, "error": "Resume text is empty or too short to analyze."}],
+            "errors": [
+                {
+                    "step": WorkflowStep.RESUME_AGENT,
+                    "error": "Resume text is empty or too short to analyze.",
+                }
+            ],
             "processing_log": ["ResumeAgent FAILED: empty resume text"],
         }
 
@@ -68,14 +73,15 @@ async def resume_agent(state: CareerPilotState) -> dict:
         result: ResumeAnalysis = await llm.ainvoke(messages)
         logger.info(
             "[ResumeAgent] Done. Skills: %d | Experience entries: %d",
-
             len(result.technical_skills),
             len(result.experience),
         )
         return {
             "resume_analysis": result,
             "completed_steps": [WorkflowStep.RESUME_AGENT],
-            "processing_log": [f"ResumeAgent completed. Found {len(result.technical_skills)} technical skills."],
+            "processing_log": [
+                f"ResumeAgent completed. Found {len(result.technical_skills)} technical skills."
+            ],
         }
 
     except Exception as exc:

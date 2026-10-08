@@ -11,6 +11,7 @@ import logging
 from langgraph.graph import END, START, StateGraph
 from langgraph.pregel import RetryPolicy
 
+from app.agents.cv_suggestion_agent import cv_suggestion_agent
 from app.agents.gap_agent import gap_agent
 from app.agents.interview_agent import interview_agent
 from app.agents.job_agent import job_agent
@@ -18,12 +19,13 @@ from app.agents.report_agent import report_agent
 from app.agents.resume_agent import resume_agent
 from app.agents.roadmap_agent import roadmap_agent
 from app.agents.skill_agent import skill_agent
-from app.agents.cv_suggestion_agent import cv_suggestion_agent
 from app.config import get_settings
 from app.graph.state import CareerPilotState
 
+
 def clean_state(state: CareerPilotState) -> dict:
     return {"web_search_results": [], "resume_text": ""}
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +45,11 @@ def build_graph():
 
     # Retry policy: max_attempts is retries + 1 (initial attempt)
     retry = RetryPolicy(
-        initial_interval=1.0, 
-        backoff_factor=2.0, 
-        max_interval=10.0, 
+        initial_interval=1.0,
+        backoff_factor=2.0,
+        max_interval=10.0,
         max_attempts=settings.max_agent_retries + 1,
-        jitter=True
+        jitter=True,
     )
 
     # ---- Register nodes ---------------------------------------------------

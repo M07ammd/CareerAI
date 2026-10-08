@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Agent Runner
 
 Centralised exception handling for all agents.
@@ -17,11 +17,7 @@ Design:
 
 from __future__ import annotations
 
-import functools
 import logging
-from typing import Callable, Awaitable, Any
-
-import httpx
 
 logger = logging.getLogger(__name__)
 

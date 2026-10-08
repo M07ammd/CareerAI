@@ -25,7 +25,15 @@ logger = logging.getLogger(__name__)
 CRITICAL_STEPS = frozenset({"resume_agent", "job_agent", "skill_agent"})
 
 # Optional agents: failure yields a warning, not an error.
-OPTIONAL_STEPS = frozenset({"interview_agent", "roadmap_agent", "gap_agent", "report_agent", "cv_suggestion_agent"})
+OPTIONAL_STEPS = frozenset(
+    {
+        "interview_agent",
+        "roadmap_agent",
+        "gap_agent",
+        "report_agent",
+        "cv_suggestion_agent",
+    }
+)
 
 
 def _normalise_step(step: str) -> str:
@@ -56,10 +64,14 @@ async def run_analysis(
     """
     logger.info(
         "[%s] Starting analysis. Resume: %d chars | JD: %d chars",
-        request_id, len(resume_text), len(job_description),
+        request_id,
+        len(resume_text),
+        len(job_description),
     )
 
-    initial_state = get_initial_state(resume_text=resume_text, job_description=job_description)
+    initial_state = get_initial_state(
+        resume_text=resume_text, job_description=job_description
+    )
     graph = get_graph()
 
     try:
@@ -100,11 +112,16 @@ async def run_analysis(
 
     # Success if final_report present, partial otherwise
     has_report = final_state.get("final_report") is not None
-    status_val: Literal["success", "partial", "error"] = "success" if has_report else "partial"
+    status_val: Literal["success", "partial", "error"] = (
+        "success" if has_report else "partial"
+    )
 
     logger.info(
         "[%s] Analysis complete. Status: %s | Steps: %s | Warnings: %d",
-        request_id, status_val, completed, len(warnings),
+        request_id,
+        status_val,
+        completed,
+        len(warnings),
     )
 
     return AnalysisResponse(
@@ -138,10 +155,14 @@ async def run_analysis_stream(
     """
     logger.info(
         "[%s] Starting streaming analysis. Resume: %d chars | JD: %d chars",
-        request_id, len(resume_text), len(job_description),
+        request_id,
+        len(resume_text),
+        len(job_description),
     )
 
-    initial_state = get_initial_state(resume_text=resume_text, job_description=job_description)
+    initial_state = get_initial_state(
+        resume_text=resume_text, job_description=job_description
+    )
     graph = get_graph()
 
     def _sse(payload: dict) -> str:
@@ -150,22 +171,28 @@ async def run_analysis_stream(
     try:
         async for chunk in graph.astream(initial_state, stream_mode="updates"):
             for node_name, updates in chunk.items():
-                if "errors" in updates and updates["errors"]:
-                    step = _normalise_step(str(updates["errors"][-1].get("step", node_name)))
+                if updates.get("errors"):
+                    step = _normalise_step(
+                        str(updates["errors"][-1].get("step", node_name))
+                    )
                     if step in CRITICAL_STEPS:
                         # Critical failure — emit error event (no internal details)
-                        yield _sse({
-                            "type": "error",
-                            "message": f"A critical step ({_readable_step(step)}) failed.",
-                            "request_id": request_id,
-                        })
+                        yield _sse(
+                            {
+                                "type": "error",
+                                "message": f"A critical step ({_readable_step(step)}) failed.",
+                                "request_id": request_id,
+                            }
+                        )
                         return
                     else:
-                        yield _sse({
-                            "type": "warning",
-                            "node": node_name,
-                            "message": f"{_readable_step(step)}: this section may be incomplete.",
-                        })
+                        yield _sse(
+                            {
+                                "type": "warning",
+                                "node": node_name,
+                                "message": f"{_readable_step(step)}: this section may be incomplete.",
+                            }
+                        )
                 else:
                     yield _sse({"type": "step_completed", "node": node_name})
 
@@ -175,8 +202,10 @@ async def run_analysis_stream(
 
     except Exception as exc:
         logger.exception("[%s] Streaming graph execution crashed: %s", request_id, exc)
-        yield _sse({
-            "type": "error",
-            "message": "The analysis encountered an internal error.",
-            "request_id": request_id,
-        })
+        yield _sse(
+            {
+                "type": "error",
+                "message": "The analysis encountered an internal error.",
+                "request_id": request_id,
+            }
+        )

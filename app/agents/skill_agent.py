@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -64,7 +64,7 @@ def compute_deterministic_score(
     Returns an integer 0-100.
     """
     matched_set = {s.lower().strip() for s in matched}
-    
+
     partial_set = set()
     for p in partial:
         if isinstance(p, str):
@@ -106,7 +106,12 @@ async def skill_agent(state: CareerPilotState) -> dict:
     if not resume_analysis or not job_analysis:
         logger.error("[SkillAgent] Missing prerequisite data")
         return {
-            "errors": [{"step": WorkflowStep.SKILL_AGENT, "error": "Missing resume_analysis or job_analysis."}],
+            "errors": [
+                {
+                    "step": WorkflowStep.SKILL_AGENT,
+                    "error": "Missing resume_analysis or job_analysis.",
+                }
+            ],
             "processing_log": ["SkillAgent FAILED: missing prerequisite data"],
         }
 

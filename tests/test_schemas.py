@@ -15,7 +15,6 @@ from app.schemas.models import (
     InterviewQuestions,
     JobAnalysis,
     MatchLevel,
-    ProjectEntry,
     ResumeAnalysis,
     RoadmapMilestone,
     SkillGapItem,

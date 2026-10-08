@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Application Configuration
 
 All settings are read from environment variables (or a .env file).
@@ -8,7 +8,6 @@ Add new variables here AND in .env.example.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,21 +22,23 @@ class Settings(BaseSettings):
     )
 
     # ---- LLM ---------------------------------------------------------------
-    llm_provider: str = Field(default="openai", description="openai | google | anthropic")
+    llm_provider: str = Field(
+        default="openai", description="openai | google | anthropic"
+    )
     llm_model: str = Field(default="gpt-4o-mini")
-    llm_base_url: Optional[str] = Field(
+    llm_base_url: str | None = Field(
         default=None,
         description="Optional custom base URL for OpenAI-compatible APIs (e.g. OpenRouter)",
     )
 
     # ---- API Keys -----------------------------------------------------------
-    openai_api_key: Optional[str] = Field(default=None)
-    google_api_key: Optional[str] = Field(default=None)
-    anthropic_api_key: Optional[str] = Field(default=None)
+    openai_api_key: str | None = Field(default=None)
+    google_api_key: str | None = Field(default=None)
+    anthropic_api_key: str | None = Field(default=None)
 
     # ---- Web Search --------------------------------------------------------
-    tavily_api_key: Optional[str] = Field(default=None)
-    serper_api_key: Optional[str] = Field(default=None)
+    tavily_api_key: str | None = Field(default=None)
+    serper_api_key: str | None = Field(default=None)
     web_search_enabled: bool = Field(default=True)
 
     # ---- Application -------------------------------------------------------
@@ -49,19 +50,34 @@ class Settings(BaseSettings):
     # ---- Security ----------------------------------------------------------
     # Optional API-key gate. Disabled (None) for local dev convenience.
     # Set API_KEY=<secret> in production to require X-API-Key header.
-    api_key: Optional[str] = Field(default=None, description="Secret for X-API-Key auth (disabled when unset)")
+    api_key: str | None = Field(
+        default=None, description="Secret for X-API-Key auth (disabled when unset)"
+    )
 
     # ---- Rate Limiting (slowapi) -------------------------------------------
-    rate_limit_per_minute: int = Field(default=10, description="Max /analyze requests per IP per minute")
+    rate_limit_per_minute: int = Field(
+        default=10, description="Max /analyze requests per IP per minute"
+    )
 
     # ---- File Handling -----------------------------------------------------
-    max_pdf_size_mb: int = Field(default=10, description="Maximum PDF upload size in MB")
-    max_pdf_pages: int = Field(default=50, description="Maximum pages extracted from PDF")
-    max_resume_chars: int = Field(default=30_000, description="Max characters kept from resume text")
-    max_jd_chars: int = Field(default=15_000, description="Max characters accepted in job description")
+    max_pdf_size_mb: int = Field(
+        default=10, description="Maximum PDF upload size in MB"
+    )
+    max_pdf_pages: int = Field(
+        default=50, description="Maximum pages extracted from PDF"
+    )
+    max_resume_chars: int = Field(
+        default=30_000, description="Max characters kept from resume text"
+    )
+    max_jd_chars: int = Field(
+        default=15_000, description="Max characters accepted in job description"
+    )
 
     # ---- Report Saving (opt-in, default off) --------------------------------
-    save_reports: bool = Field(default=False, description="Persist reports to disk (SAVE_REPORTS=true to enable)")
+    save_reports: bool = Field(
+        default=False,
+        description="Persist reports to disk (SAVE_REPORTS=true to enable)",
+    )
     report_output_dir: str = Field(default="data/reports")
 
     # ---- Retry / Reliability -----------------------------------------------

@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Career Roadmap Agent
 
 Creates a practical, actionable learning roadmap to bridge the skill gap.
@@ -54,7 +54,12 @@ async def roadmap_agent(state: CareerPilotState) -> dict:
 
     if not skill_gaps or not job_analysis:
         return {
-            "errors": [{"step": WorkflowStep.ROADMAP_AGENT, "error": "Missing skill_gaps or job_analysis."}],
+            "errors": [
+                {
+                    "step": WorkflowStep.ROADMAP_AGENT,
+                    "error": "Missing skill_gaps or job_analysis.",
+                }
+            ],
             "processing_log": ["RoadmapAgent FAILED: missing prerequisite data"],
         }
 
@@ -63,6 +68,7 @@ async def roadmap_agent(state: CareerPilotState) -> dict:
     settings = get_settings()
     if settings.web_search_enabled:
         from datetime import datetime
+
         year = datetime.now().year
         queries = [
             f"best {job_analysis.job_title} learning roadmap {year}",
@@ -77,15 +83,23 @@ async def roadmap_agent(state: CareerPilotState) -> dict:
                 results = await web_search(q, max_results=3)
                 web_snippets.extend(results)
             except Exception as search_exc:
-                logger.warning("[RoadmapAgent] Web search failed (non-fatal): %s", search_exc)
+                logger.warning(
+                    "[RoadmapAgent] Web search failed (non-fatal): %s", search_exc
+                )
 
     context_parts = [
-        wrap_user_content("ROLE TARGET", f"Title: {job_analysis.job_title}\nDomain: {job_analysis.domain}"),
+        wrap_user_content(
+            "ROLE TARGET",
+            f"Title: {job_analysis.job_title}\nDomain: {job_analysis.domain}",
+        ),
         wrap_user_content("SKILL GAPS", json.dumps(skill_gaps.model_dump(), indent=2)),
     ]
     if skill_match:
         context_parts.append(
-            wrap_user_content("CURRENT MATCH SCORE", f"{skill_match.match_score}/100\nStrengths: {skill_match.strengths}")
+            wrap_user_content(
+                "CURRENT MATCH SCORE",
+                f"{skill_match.match_score}/100\nStrengths: {skill_match.strengths}",
+            )
         )
     if resume_analysis:
         context_parts.append(
@@ -96,7 +110,9 @@ async def roadmap_agent(state: CareerPilotState) -> dict:
         )
     if web_snippets:
         context_parts.append(
-            wrap_user_content("WEB SEARCH RESULTS", "\n".join(f"- {s}" for s in web_snippets[:12]))
+            wrap_user_content(
+                "WEB SEARCH RESULTS", "\n".join(f"- {s}" for s in web_snippets[:12])
+            )
         )
 
     llm = get_structured_llm(CareerRoadmap)
@@ -108,17 +124,23 @@ async def roadmap_agent(state: CareerPilotState) -> dict:
     try:
         result: CareerRoadmap = await llm.ainvoke(messages)
         total_milestones = (
-            len(result.immediate_actions) + len(result.short_term_goals) + len(result.long_term_goals)
+            len(result.immediate_actions)
+            + len(result.short_term_goals)
+            + len(result.long_term_goals)
         )
         logger.info(
             "[RoadmapAgent] Done. Milestones: %d | Projects: %d | Certs: %d",
-            total_milestones, len(result.recommended_projects), len(result.recommended_certifications),
+            total_milestones,
+            len(result.recommended_projects),
+            len(result.recommended_certifications),
         )
         return {
             "career_roadmap": result,
             "web_search_results": web_snippets,
             "completed_steps": [WorkflowStep.ROADMAP_AGENT],
-            "processing_log": [f"RoadmapAgent completed. Created {total_milestones} milestones."],
+            "processing_log": [
+                f"RoadmapAgent completed. Created {total_milestones} milestones."
+            ],
         }
 
     except Exception as exc:

@@ -2,8 +2,7 @@
 Tests for individual agent logic (unit-level, with mocked LLMs).
 """
 
-import json
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -11,7 +10,6 @@ from app.graph.state import get_initial_state
 from app.schemas.models import (
     JobAnalysis,
     ResumeAnalysis,
-    SkillGaps,
     SkillMatch,
     WorkflowStep,
 )
@@ -155,29 +153,40 @@ class TestSkillAgent:
 
         assert "errors" in result
 
+
 def test_deterministic_scoring_logic():
     from app.agents.skill_agent import compute_deterministic_score
-    from app.schemas.models import SkillMatchDetail, MatchLevel
-    
+    from app.schemas.models import MatchLevel, SkillMatchDetail
+
     # Identical inputs yield identical scores
     req = ["Python", "Docker"]
     pref = ["AWS"]
-    
-    score1 = compute_deterministic_score(req, pref, matched=["Python"], partial=["Docker"])
-    score2 = compute_deterministic_score(req, pref, matched=["Python"], partial=["Docker"])
+
+    score1 = compute_deterministic_score(
+        req, pref, matched=["Python"], partial=["Docker"]
+    )
+    score2 = compute_deterministic_score(
+        req, pref, matched=["Python"], partial=["Docker"]
+    )
     assert score1 == score2
-    
+
     # Test missing required skills vs partial matches
-    score_missing = compute_deterministic_score(req, pref, matched=["Python"], partial=[]) # Missing Docker
-    score_partial = compute_deterministic_score(req, pref, matched=["Python"], partial=["Docker"]) # Partial Docker
-    
+    score_missing = compute_deterministic_score(
+        req, pref, matched=["Python"], partial=[]
+    )  # Missing Docker
+    score_partial = compute_deterministic_score(
+        req, pref, matched=["Python"], partial=["Docker"]
+    )  # Partial Docker
+
     assert score_missing < score_partial
-    
+
     # Using SkillMatchDetail objects in partial
     partial_obj = SkillMatchDetail(skill="Docker", level=MatchLevel.PARTIAL)
-    score_obj = compute_deterministic_score(req, pref, matched=["Python"], partial=[partial_obj])
+    score_obj = compute_deterministic_score(
+        req, pref, matched=["Python"], partial=[partial_obj]
+    )
     assert score_obj == score_partial
-    
+
 
 class TestCVSuggestionAgent:
     @patch("app.agents.cv_suggestion_agent.get_structured_llm")
@@ -185,19 +194,19 @@ class TestCVSuggestionAgent:
     async def test_successful_rewrites(self, mock_get_llm):
         from app.agents.cv_suggestion_agent import BulletRewrites, cv_suggestion_agent
         from app.schemas.models import CVBulletRewrite, FinalReport
-        
+
         mock_llm = AsyncMock()
         mock_llm.ainvoke.return_value = BulletRewrites(
             rewrites=[
                 CVBulletRewrite(
                     original_bullet="Did stuff",
                     suggested_bullet="Did stuff well using Python",
-                    reasoning="Keywords"
+                    reasoning="Keywords",
                 )
             ]
         )
         mock_get_llm.return_value = mock_llm
-        
+
         fr = FinalReport(
             job_title="Dev",
             executive_summary="",
@@ -205,18 +214,21 @@ class TestCVSuggestionAgent:
             score_interpretation="",
             hiring_probability="Medium",
             top_recommendations="|a|b|",
-            full_report_markdown=""
+            full_report_markdown="",
         )
-        
+
         state = make_resume_state(
             resume_analysis=ResumeAnalysis(summary="Dev", technical_skills=[]),
-            job_analysis=JobAnalysis(job_title="Dev", domain="Backend", seniority_level="Junior"),
-            final_report=fr
+            job_analysis=JobAnalysis(
+                job_title="Dev", domain="Backend", seniority_level="Junior"
+            ),
+            final_report=fr,
         )
-        
+
         result = await cv_suggestion_agent(state)
-        
+
         assert "final_report" in result
         assert len(result["final_report"].cv_bullet_rewrites) == 1
-        assert result["final_report"].cv_bullet_rewrites[0].original_bullet == "Did stuff"
-
+        assert (
+            result["final_report"].cv_bullet_rewrites[0].original_bullet == "Did stuff"
+        )

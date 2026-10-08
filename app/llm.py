@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - LLM Configuration
 
 Centralised LLM setup. Provider, model and timeout are controlled by env

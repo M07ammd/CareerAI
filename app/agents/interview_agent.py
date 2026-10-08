@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Interview Agent
 
 Generates personalised interview questions based on the candidate CV,
@@ -52,13 +52,22 @@ async def interview_agent(state: CareerPilotState) -> dict:
 
     if not resume_analysis or not job_analysis:
         return {
-            "errors": [{"step": WorkflowStep.INTERVIEW_AGENT, "error": "Missing resume_analysis or job_analysis."}],
+            "errors": [
+                {
+                    "step": WorkflowStep.INTERVIEW_AGENT,
+                    "error": "Missing resume_analysis or job_analysis.",
+                }
+            ],
             "processing_log": ["InterviewAgent FAILED: missing prerequisite data"],
         }
 
     context_parts = [
-        wrap_user_content("CANDIDATE PROFILE", json.dumps(resume_analysis.model_dump(), indent=2)),
-        wrap_user_content("JOB REQUIREMENTS", json.dumps(job_analysis.model_dump(), indent=2)),
+        wrap_user_content(
+            "CANDIDATE PROFILE", json.dumps(resume_analysis.model_dump(), indent=2)
+        ),
+        wrap_user_content(
+            "JOB REQUIREMENTS", json.dumps(job_analysis.model_dump(), indent=2)
+        ),
     ]
     if skill_match:
         context_parts.append(
@@ -70,7 +79,11 @@ async def interview_agent(state: CareerPilotState) -> dict:
     if skill_gaps:
         critical = skill_gaps.critical_blockers
         high = [g.skill for g in skill_gaps.high_priority_gaps]
-        context_parts.append(wrap_user_content("SKILL GAPS", f"Critical: {critical}\nHigh Priority: {high}"))
+        context_parts.append(
+            wrap_user_content(
+                "SKILL GAPS", f"Critical: {critical}\nHigh Priority: {high}"
+            )
+        )
 
     llm = get_structured_llm(InterviewQuestions)
     messages = [
@@ -81,18 +94,24 @@ async def interview_agent(state: CareerPilotState) -> dict:
     try:
         result: InterviewQuestions = await llm.ainvoke(messages)
         total = (
-            len(result.technical_questions) + len(result.project_questions)
-            + len(result.behavioral_questions) + len(result.hr_questions)
+            len(result.technical_questions)
+            + len(result.project_questions)
+            + len(result.behavioral_questions)
+            + len(result.hr_questions)
         )
         logger.info(
             "[InterviewAgent] Done. Technical: %d | Project: %d | Behavioral: %d | HR: %d",
-            len(result.technical_questions), len(result.project_questions),
-            len(result.behavioral_questions), len(result.hr_questions),
+            len(result.technical_questions),
+            len(result.project_questions),
+            len(result.behavioral_questions),
+            len(result.hr_questions),
         )
         return {
             "interview_questions": result,
             "completed_steps": [WorkflowStep.INTERVIEW_AGENT],
-            "processing_log": [f"InterviewAgent completed. Generated {total} personalised questions."],
+            "processing_log": [
+                f"InterviewAgent completed. Generated {total} personalised questions."
+            ],
         }
 
     except Exception as exc:

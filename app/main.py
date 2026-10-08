@@ -4,29 +4,26 @@ CareerPilot AI - FastAPI Application Entry Point
 
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Logging setup
+# ---------------------------------------------------------------------------
+import json
 import logging
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.dependencies import limiter
-
 from app.config import get_settings
 
-# ---------------------------------------------------------------------------
-# Logging setup
-# ---------------------------------------------------------------------------
-
-import json
-from contextvars import ContextVar
-
 request_id_var: ContextVar[str] = ContextVar("request_id", default="system")
+
 
 class JsonLogFormatter(logging.Formatter):
     def format(self, record):
@@ -40,6 +37,7 @@ class JsonLogFormatter(logging.Formatter):
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
         return json.dumps(log_data)
+
 
 settings = get_settings()
 
@@ -62,14 +60,19 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     logger.info("  CareerPilot AI  |  v%s", settings.version)
     logger.info("  LLM: %s/%s", settings.llm_provider, settings.llm_model)
-    logger.info("  Web Search: %s", "enabled" if settings.web_search_enabled else "disabled")
+    logger.info(
+        "  Web Search: %s", "enabled" if settings.web_search_enabled else "disabled"
+    )
     logger.info("  API Key Auth: %s", "enabled" if settings.api_key else "disabled")
-    logger.info("  Rate limit: %d req/min/IP on /analyze", settings.rate_limit_per_minute)
+    logger.info(
+        "  Rate limit: %d req/min/IP on /analyze", settings.rate_limit_per_minute
+    )
     logger.info("  Save Reports: %s", settings.save_reports)
     logger.info("=" * 60)
 
     try:
         from app.graph.graph import get_graph
+
         get_graph()
         logger.info("LangGraph workflow compiled and ready.")
     except Exception as exc:
@@ -98,7 +101,7 @@ class RequestIdMiddleware:
             try:
                 scope["state"] = getattr(scope.get("state"), "__dict__", {})
                 scope.setdefault("extensions", {})["request_id"] = req_id
-                
+
                 async def send_with_header(message):
                     if message["type"] == "http.response.start":
                         headers = dict(message.get("headers", []))
@@ -115,6 +118,7 @@ class RequestIdMiddleware:
 
 class ApiKeyAuthMiddleware:
     """Check API key and Content-Length before the body is read."""
+
     def __init__(self, app):
         self.app = app
         self.api_key = settings.api_key.encode() if settings.api_key else None
@@ -124,25 +128,50 @@ class ApiKeyAuthMiddleware:
         if scope["type"] == "http":
             if scope["path"].startswith("/api/"):
                 headers = dict(scope.get("headers", []))
-                
+
                 if self.api_key:
                     provided = headers.get(b"x-api-key")
                     import secrets
-                    if not provided or not secrets.compare_digest(provided, self.api_key):
-                        await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
-                        await send({"type": "http.response.body", "body": b'{"detail":"Invalid or missing X-API-Key header."}'})
+
+                    if not provided or not secrets.compare_digest(
+                        provided, self.api_key
+                    ):
+                        await send(
+                            {
+                                "type": "http.response.start",
+                                "status": 401,
+                                "headers": [(b"content-type", b"application/json")],
+                            }
+                        )
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": b'{"detail":"Invalid or missing X-API-Key header."}',
+                            }
+                        )
                         return
-                    
+
                 content_length = headers.get(b"content-length")
                 if content_length:
                     try:
                         if int(content_length) > self.max_body_size:
-                            await send({"type": "http.response.start", "status": 413, "headers": [(b"content-type", b"application/json")]})
-                            await send({"type": "http.response.body", "body": b'{"detail":"Request body too large."}'})
+                            await send(
+                                {
+                                    "type": "http.response.start",
+                                    "status": 413,
+                                    "headers": [(b"content-type", b"application/json")],
+                                }
+                            )
+                            await send(
+                                {
+                                    "type": "http.response.body",
+                                    "body": b'{"detail":"Request body too large."}',
+                                }
+                            )
                             return
                     except ValueError:
                         pass
-                        
+
         await self.app(scope, receive, send)
 
 
@@ -187,6 +216,7 @@ def create_app() -> FastAPI:
 
     # Routers
     from app.api.routes import router as api_router
+
     app.include_router(api_router, prefix="/api")
 
     return app
@@ -197,6 +227,7 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

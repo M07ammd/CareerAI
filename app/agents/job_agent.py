@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Job Analysis Agent
 
 Parses the job description and extracts structured requirements.
@@ -44,7 +44,12 @@ async def job_agent(state: CareerPilotState) -> dict:
     if not job_description or len(job_description.strip()) < 50:
         logger.error("[JobAgent] Job description is empty or too short")
         return {
-            "errors": [{"step": WorkflowStep.JOB_AGENT, "error": "Job description is empty or too short to analyze."}],
+            "errors": [
+                {
+                    "step": WorkflowStep.JOB_AGENT,
+                    "error": "Job description is empty or too short to analyze.",
+                }
+            ],
             "processing_log": ["JobAgent FAILED: empty job description"],
         }
 
