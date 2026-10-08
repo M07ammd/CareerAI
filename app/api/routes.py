@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config import get_settings
-from app.api.dependencies import _check_api_key, limiter
+from app.api.dependencies import limiter
 from app.schemas.models import AnalysisResponse, HealthResponse, InterviewTurnRequest, InterviewTurnResponse, CompareResponse
 from app.services.analysis_service import run_analysis, run_analysis_stream
 from app.services.interview_service import handle_interview_turn
@@ -123,7 +123,6 @@ async def analyze_career(
             max_length=settings.max_jd_chars,
         ),
     ],
-    _auth: None = Depends(_check_api_key),
 ) -> AnalysisResponse:
     """
     Main analysis endpoint.
@@ -228,7 +227,6 @@ async def analyze_career_stream(
             max_length=settings.max_jd_chars,
         ),
     ],
-    _auth: None = Depends(_check_api_key),
 ) -> StreamingResponse:
     """
     Streaming analysis endpoint using Server-Sent Events (SSE).
@@ -297,7 +295,6 @@ async def analyze_career_stream(
 async def interview_turn(
     request: Request,
     payload: InterviewTurnRequest,
-    _auth: None = Depends(_check_api_key),
 ) -> InterviewTurnResponse:
     """
     Evaluate a candidate's answer to an interview question.
@@ -322,7 +319,6 @@ async def compare_jobs(
         list[str],
         Form(description="List of job descriptions to compare against")
     ],
-    _auth: None = Depends(_check_api_key),
 ) -> CompareResponse:
     """
     Compare a resume against multiple job descriptions.

@@ -122,15 +122,16 @@ class ApiKeyAuthMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            if self.api_key and scope["path"].startswith("/api/"):
+            if scope["path"].startswith("/api/"):
                 headers = dict(scope.get("headers", []))
-                provided = headers.get(b"x-api-key")
                 
-                import secrets
-                if not provided or not secrets.compare_digest(provided, self.api_key):
-                    await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
-                    await send({"type": "http.response.body", "body": b'{"detail":"Invalid or missing X-API-Key header."}'})
-                    return
+                if self.api_key:
+                    provided = headers.get(b"x-api-key")
+                    import secrets
+                    if not provided or not secrets.compare_digest(provided, self.api_key):
+                        await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
+                        await send({"type": "http.response.body", "body": b'{"detail":"Invalid or missing X-API-Key header."}'})
+                        return
                     
                 content_length = headers.get(b"content-length")
                 if content_length:

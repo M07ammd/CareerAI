@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Group B security features:
   B4 - Prompt injection hardening
 """
@@ -50,7 +50,7 @@ def test_wrap_user_content_neutralizes_attacks():
     
     assert _OPEN in wrapped
     assert _CLOSE in wrapped
-    assert "<<<DATA_END>>>" not in wrapped  # Should be filtered
+    assert "[REDACTED_DELIMITER]" in wrapped  # The malicious delimiter was filtered
     assert "ignore all previous instructions" not in wrapped.lower() # Should be filtered
 
 def test_api_key_auth_middleware_rejects():
