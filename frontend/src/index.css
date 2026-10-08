@@ -1,4 +1,4 @@
-﻿@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
 @tailwind base;
@@ -7,67 +7,50 @@
 
 @layer base {
   :root {
-    /* ── Neutral palette ─────────────────────── */
-    --background:   0 0% 100%;
-    --foreground:   222 47% 11%;
-
-    --card:         0 0% 100%;
-    --card-foreground: 222 47% 11%;
-
-    --popover:      0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-
-    /* ── Brand – slate/indigo accent ─────────── */
-    --primary:      231 48% 48%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary:    210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-
-    --muted:        210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-
-    --accent:       210 40% 94%;
-    --accent-foreground: 222 47% 11%;
-
-    --destructive:  0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border:       214 32% 91%;
-    --input:        214 32% 91%;
-    --ring:         231 48% 48%;
-
+    /* ── Light Mode (Clean, High Contrast, Stripe-like) ── */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 0 0% 9%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background:   222 47% 9%;
-    --foreground:   210 40% 96%;
-
-    --card:         222 47% 12%;
-    --card-foreground: 210 40% 96%;
-
-    --popover:      222 47% 12%;
-    --popover-foreground: 210 40% 96%;
-
-    --primary:      231 70% 65%;
-    --primary-foreground: 222 47% 9%;
-
-    --secondary:    217 33% 18%;
-    --secondary-foreground: 210 40% 96%;
-
-    --muted:        217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent:       217 33% 18%;
-    --accent-foreground: 210 40% 96%;
-
-    --destructive:  0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border:       217 33% 22%;
-    --input:        217 33% 22%;
-    --ring:         231 70% 65%;
+    /* ── Dark Mode (Sleek, Linear-like) ── */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 4%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
   }
 
   * {

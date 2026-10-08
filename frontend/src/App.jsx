@@ -86,7 +86,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background font-sans antialiased text-foreground selection:bg-primary/20">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-background">
         <div className="container mx-auto px-4 md:px-8 h-14 flex items-center justify-between">
           <a className="flex items-center gap-2 font-bold tracking-tight text-lg hover:text-primary transition-colors" href="/">
             <div className="bg-primary text-primary-foreground p-1 rounded-md"><Layers className="h-4 w-4" /></div>
@@ -103,9 +103,9 @@ export default function App() {
       <main className="container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-6xl">
         {!result && !isLoading && (
           <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
-            <div className="space-y-3 text-center">
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Career Analysis</h1>
-              <p className="text-muted-foreground text-lg">Compare your resume against a target role to find skill gaps and get a tailored learning roadmap.</p>
+            <div className="space-y-3 text-center mb-10">
+              <h1 className="text-4xl font-bold tracking-tight">Career Analysis</h1>
+              <p className="text-muted-foreground">Compare your resume against a target role to find skill gaps and get a tailored learning roadmap.</p>
             </div>
 
             {error && (
