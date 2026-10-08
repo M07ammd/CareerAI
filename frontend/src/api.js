@@ -20,8 +20,17 @@ export async function analyzeCareer(cvFile, jobDescription) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Network error' }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+    const error = await response.json().catch(() => ({ detail: 'Network error or server unavailable' }));
+    
+    // FastAPI validation errors (422) return an array of objects in error.detail
+    let errorMessage = `HTTP ${response.status}`;
+    if (error.detail) {
+      errorMessage = typeof error.detail === 'string' 
+        ? error.detail 
+        : JSON.stringify(error.detail);
+    }
+    
+    throw new Error(errorMessage);
   }
 
   return response.json();
