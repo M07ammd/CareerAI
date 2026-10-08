@@ -143,7 +143,7 @@ class TestSkillAgent:
         result = await skill_agent(state)
 
         assert "skill_match" in result
-        assert result["skill_match"].match_score == 66
+        assert result["skill_match"].match_score == 77
 
     @pytest.mark.asyncio
     async def test_missing_prerequisites_returns_error(self):

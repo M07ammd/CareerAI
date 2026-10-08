@@ -290,6 +290,7 @@ class AnalysisResponse(BaseModel):
     career_roadmap: Optional[CareerRoadmap] = None
     final_report: Optional[FinalReport] = None
     error_message: Optional[str] = None
+    failed_step: Optional[str] = Field(default=None, description="Which critical step failed (for error status)")
     warnings: List[str] = Field(default_factory=list, description="Warnings for failed optional sections")
     processing_steps: List[str] = Field(default_factory=list, description="Steps completed during processing")
 

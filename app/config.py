@@ -1,4 +1,4 @@
-"""
+﻿"""
 CareerPilot AI - Application Configuration
 
 All settings are read from environment variables (or a .env file).
@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # ---- LLM ---------------------------------------------------------------
     llm_provider: str = Field(default="openai", description="openai | google | anthropic")
     llm_model: str = Field(default="gpt-4o-mini")
+    llm_base_url: Optional[str] = Field(
+        default=None,
+        description="Optional custom base URL for OpenAI-compatible APIs (e.g. OpenRouter)",
+    )
 
     # ---- API Keys -----------------------------------------------------------
     openai_api_key: Optional[str] = Field(default=None)

@@ -1,8 +1,8 @@
-"""
+﻿"""
 CareerPilot AI - Gap Analyzer Agent
 
 Prioritizes missing skills and explains why each gap matters.
-Optionally uses web search for current learning resources.
+Transient LLM errors propagate for RetryPolicy.
 """
 
 from __future__ import annotations
@@ -12,46 +12,39 @@ import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.agents.agent_runner import is_transient
+from app.agents.prompt_utils import ANTI_INJECTION_INSTRUCTION, wrap_user_content
 from app.config import get_settings
 from app.graph.state import CareerPilotState
 from app.llm import get_structured_llm
-from app.agents.prompt_utils import wrap_user_content, ANTI_INJECTION_INSTRUCTION
 from app.schemas.models import SkillGaps, WorkflowStep
 from app.tools.web_search import async_web_search as web_search
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a Senior Career Coach and Skills Gap Analyst.
-
-Your task is to analyse the missing skills from the candidate's profile and prioritize them.
-
-Priority definitions:
-- HIGH: Skills explicitly required by the job that the candidate lacks completely.
-  Without these, the candidate will likely be rejected at screening.
-- MEDIUM: Skills that are preferred or frequently appear in responsibilities.
-  Having these improves the chance of success significantly.
-- LOW: Nice-to-have skills or those where partial knowledge exists.
-
-For each gap, provide:
-1. Why it matters for this specific role.
-2. Concrete learning resources or paths (courses, docs, projects).
-3. A realistic time estimate to reach working proficiency.
-
-Identify "critical blockers" — skills that would prevent the candidate from getting an interview.
-
-Be practical and specific. Reference the actual job requirements and candidate background.
-"""
+SYSTEM_PROMPT = (
+    "You are a Senior Career Coach and Skills Gap Analyst.\n\n"
+    "Your task is to analyse the missing skills from the candidate profile and prioritize them.\n\n"
+    "Priority definitions:\n"
+    "- HIGH: Skills explicitly required by the job that the candidate lacks completely.\n"
+    "  Without these, the candidate will likely be rejected at screening.\n"
+    "- MEDIUM: Skills that are preferred or frequently appear in responsibilities.\n"
+    "  Having these improves the chance of success significantly.\n"
+    "- LOW: Nice-to-have skills or those where partial knowledge exists.\n\n"
+    "For each gap, provide:\n"
+    "1. Why it matters for this specific role.\n"
+    "2. Concrete learning resources or paths (courses, docs, projects).\n"
+    "3. A realistic time estimate to reach working proficiency.\n\n"
+    "Identify critical_blockers — skills that would prevent the candidate from getting an interview.\n"
+    "Be practical and specific. Reference the actual job requirements and candidate background.\n"
+    + ANTI_INJECTION_INSTRUCTION
+)
 
 
 async def gap_agent(state: CareerPilotState) -> dict:
     """
     Analyse and prioritise skill gaps, with optional web search enrichment.
-
-    Args:
-        state: Must contain skill_match and job_analysis.
-
-    Returns:
-        Partial state update with skill_gaps populated.
+    Raises transient exceptions for LangGraph RetryPolicy.
     """
     logger.info("[GapAgent] Starting gap analysis")
 
@@ -61,12 +54,9 @@ async def gap_agent(state: CareerPilotState) -> dict:
 
     if not skill_match or not job_analysis:
         return {
-            "errors": [
-                {
-                    "step": WorkflowStep.GAP_AGENT,
-                    "error": "Missing skill_match or job_analysis."}
-            ],
-            "processing_log": ["GapAgent FAILED: missing prerequisite data"]}
+            "errors": [{"step": WorkflowStep.GAP_AGENT, "error": "Missing skill_match or job_analysis."}],
+            "processing_log": ["GapAgent FAILED: missing prerequisite data"],
+        }
 
     # Optional web search for learning resources
     web_snippets: list[str] = []
@@ -78,22 +68,22 @@ async def gap_agent(state: CareerPilotState) -> dict:
         job_title = job_analysis.job_title
         for skill in top_missing:
             query = f"best way to learn {skill} for {job_title} {year}"
-            results = await web_search(query, max_results=2)
-            web_snippets.extend(results)
-            logger.debug("[GapAgent] Web search '%s' → %d results", query, len(results))
+            try:
+                results = await web_search(query, max_results=2)
+                web_snippets.extend(results)
+                logger.debug("[GapAgent] Web search '%s' -> %d results", query, len(results))
+            except Exception as search_exc:
+                logger.warning("[GapAgent] Web search failed (non-fatal): %s", search_exc)
 
     context_parts = [
-        f"=== SKILL MATCH RESULTS ===\n{json.dumps(skill_match.model_dump(), indent=2)}",
-        f"=== JOB REQUIREMENTS ===\n{json.dumps(job_analysis.model_dump(), indent=2)}",
+        wrap_user_content("SKILL MATCH RESULTS", json.dumps(skill_match.model_dump(), indent=2)),
+        wrap_user_content("JOB REQUIREMENTS", json.dumps(job_analysis.model_dump(), indent=2)),
     ]
     if resume_analysis:
-        context_parts.append(
-            f"=== CANDIDATE BACKGROUND ===\n{json.dumps(resume_analysis.model_dump(), indent=2)}"
-        )
+        context_parts.append(wrap_user_content("CANDIDATE BACKGROUND", json.dumps(resume_analysis.model_dump(), indent=2)))
     if web_snippets:
         context_parts.append(
-            "=== WEB SEARCH RESULTS (for learning resources) ===\n"
-            + "\n".join(f"• {s}" for s in web_snippets[:10])
+            wrap_user_content("WEB SEARCH RESULTS (learning resources)", "\n".join(f"- {s}" for s in web_snippets[:10]))
         )
 
     llm = get_structured_llm(SkillGaps)
@@ -105,15 +95,11 @@ async def gap_agent(state: CareerPilotState) -> dict:
     try:
         result: SkillGaps = await llm.ainvoke(messages)
         total_gaps = (
-            len(result.high_priority_gaps)
-            + len(result.medium_priority_gaps)
-            + len(result.low_priority_gaps)
+            len(result.high_priority_gaps) + len(result.medium_priority_gaps) + len(result.low_priority_gaps)
         )
         logger.info(
             "[GapAgent] Done. High: %d | Medium: %d | Low: %d",
-            len(result.high_priority_gaps),
-            len(result.medium_priority_gaps),
-            len(result.low_priority_gaps),
+            len(result.high_priority_gaps), len(result.medium_priority_gaps), len(result.low_priority_gaps),
         )
         return {
             "skill_gaps": result,
@@ -121,18 +107,16 @@ async def gap_agent(state: CareerPilotState) -> dict:
             "completed_steps": [WorkflowStep.GAP_AGENT],
             "processing_log": [
                 f"GapAgent completed. Total gaps: {total_gaps} "
-                f"(High: {len(result.high_priority_gaps)}, "
-                f"Medium: {len(result.medium_priority_gaps)}, "
-                f"Low: {len(result.low_priority_gaps)})"
-            ]}
+                f"(High: {len(result.high_priority_gaps)}, Medium: {len(result.medium_priority_gaps)}, Low: {len(result.low_priority_gaps)})"
+            ],
+        }
 
     except Exception as exc:
-        logger.exception("[GapAgent] LLM call failed: %s", exc)
+        if is_transient(exc):
+            logger.warning("[GapAgent] Transient error (will retry): %s", exc)
+            raise
+        logger.exception("[GapAgent] Non-retryable error: %s", exc)
         return {
-            "errors": [
-                {
-                    "step": WorkflowStep.GAP_AGENT,
-                    "error": str(exc)
-                }
-            ],
-            "processing_log": [f"GapAgent FAILED: {exc}"]}
+            "errors": [{"step": WorkflowStep.GAP_AGENT, "error": str(exc)}],
+            "processing_log": [f"GapAgent FAILED: {exc}"],
+        }

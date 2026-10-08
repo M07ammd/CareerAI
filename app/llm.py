@@ -1,7 +1,9 @@
-"""
+﻿"""
 CareerPilot AI - LLM Configuration
 
-Centralised LLM setup. Provider and timeout are controlled by env variables.
+Centralised LLM setup. Provider, model and timeout are controlled by env
+variables (LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, agent_timeout_seconds).
+No API keys are read from os.getenv here — use settings only.
 """
 
 from __future__ import annotations
@@ -22,29 +24,40 @@ def get_llm(temperature: float = 0.1) -> BaseChatModel:
     """
     Return a configured LLM instance.
 
-    Timeout is taken from settings.agent_timeout_seconds.
-    Supported providers: openai | google | anthropic (set LLM_PROVIDER env var).
+    Provider is selected by LLM_PROVIDER env var (openai | google | anthropic).
+    Model is selected by LLM_MODEL env var.
+    An optional LLM_BASE_URL overrides the default API endpoint (e.g. OpenRouter).
+    Timeout is taken from AGENT_TIMEOUT_SECONDS.
+    Retries are managed by the LangGraph RetryPolicy — max_retries=0 here.
     """
     settings = get_settings()
     provider = settings.llm_provider.lower()
     timeout = float(settings.agent_timeout_seconds)
 
-    logger.info("Initialising LLM: provider=%s, model=%s, timeout=%ss", provider, settings.llm_model, timeout)
+    logger.info(
+        "Initialising LLM: provider=%s, model=%s, base_url=%s, timeout=%ss",
+        provider,
+        settings.llm_model,
+        settings.llm_base_url or "(default)",
+        timeout,
+    )
 
     if provider == "openai":
-        import os
-        return ChatOpenAI(
-            model="openrouter/free",
+        kwargs: dict = dict(
+            model=settings.llm_model,
             temperature=temperature,
-            api_key=os.getenv("OPENAI_API_KEY") or settings.openai_api_key,
-            base_url="https://openrouter.ai/api/v1",
+            api_key=settings.openai_api_key,
             timeout=timeout,
-            max_retries=0,  # Retries are managed by graph retry logic, not the LLM client
+            max_retries=0,  # Retries handled by LangGraph RetryPolicy
         )
+        if settings.llm_base_url:
+            kwargs["base_url"] = settings.llm_base_url
+        return ChatOpenAI(**kwargs)
 
     if provider == "google":
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore
+
             return ChatGoogleGenerativeAI(
                 model=settings.llm_model,
                 temperature=temperature,
@@ -52,11 +65,14 @@ def get_llm(temperature: float = 0.1) -> BaseChatModel:
                 request_timeout=timeout,
             )
         except ImportError as exc:
-            raise ImportError("Install langchain-google-genai to use the Google provider.") from exc
+            raise ImportError(
+                "Install langchain-google-genai to use the Google provider."
+            ) from exc
 
     if provider == "anthropic":
         try:
             from langchain_anthropic import ChatAnthropic  # type: ignore
+
             return ChatAnthropic(
                 model=settings.llm_model,
                 temperature=temperature,
@@ -65,7 +81,9 @@ def get_llm(temperature: float = 0.1) -> BaseChatModel:
                 max_retries=0,
             )
         except ImportError as exc:
-            raise ImportError("Install langchain-anthropic to use the Anthropic provider.") from exc
+            raise ImportError(
+                "Install langchain-anthropic to use the Anthropic provider."
+            ) from exc
 
     raise ValueError(f"Unsupported LLM provider: {provider!r}")
 
