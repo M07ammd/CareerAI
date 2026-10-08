@@ -91,6 +91,7 @@ class TestSkillMatch:
         sm = SkillMatch(
             match_score=75,
             explanation="Good match overall.",
+            strengths="| Finding | Evidence |",
         )
         assert sm.match_score == 75
 
@@ -106,6 +107,7 @@ class TestSkillMatch:
         sm = SkillMatch(
             match_score=60.0,
             explanation="Partial match.",
+            strengths="| Finding | Evidence |",
             partially_matched_skills=[
                 SkillMatchDetail(
                     skill="Kubernetes",
@@ -186,6 +188,7 @@ class TestFinalReport:
             score_interpretation="Good match — competitive candidate.",
             hiring_probability="Medium",
             full_report_markdown="# Report\n\nDetails here...",
+            top_recommendations="| Finding | Evidence |\n|---|---|",
         )
         assert fr.match_score == 72.0
         assert fr.hiring_probability == "Medium"

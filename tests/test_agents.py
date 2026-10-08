@@ -123,6 +123,7 @@ class TestSkillAgent:
             missing_skills=["LangGraph"],
             match_score=72.0,
             explanation="Good match overall.",
+            strengths="| Finding | Evidence |",
         )
         mock_get_llm.return_value = mock_llm
 
@@ -153,3 +154,27 @@ class TestSkillAgent:
         result = await skill_agent(state)
 
         assert "errors" in result
+
+def test_deterministic_scoring_logic():
+    from app.agents.skill_agent import compute_deterministic_score
+    from app.schemas.models import SkillMatchDetail, MatchLevel
+    
+    # Identical inputs yield identical scores
+    req = ["Python", "Docker"]
+    pref = ["AWS"]
+    
+    score1 = compute_deterministic_score(req, pref, matched=["Python"], partial=["Docker"])
+    score2 = compute_deterministic_score(req, pref, matched=["Python"], partial=["Docker"])
+    assert score1 == score2
+    
+    # Test missing required skills vs partial matches
+    score_missing = compute_deterministic_score(req, pref, matched=["Python"], partial=[]) # Missing Docker
+    score_partial = compute_deterministic_score(req, pref, matched=["Python"], partial=["Docker"]) # Partial Docker
+    
+    assert score_missing < score_partial
+    
+    # Using SkillMatchDetail objects in partial
+    partial_obj = SkillMatchDetail(skill="Docker", level=MatchLevel.PARTIAL)
+    score_obj = compute_deterministic_score(req, pref, matched=["Python"], partial=[partial_obj])
+    assert score_obj == score_partial
+    

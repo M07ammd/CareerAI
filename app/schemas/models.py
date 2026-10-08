@@ -134,8 +134,8 @@ class SkillMatch(BaseModel):
         ge=0, le=100, description="Overall match score from 0 to 100"
     )
     explanation: str = Field(description="Narrative explanation of the match score")
-    strengths: List[str] = Field(
-        default_factory=list, description="Areas where the candidate excels vs the job"
+    strengths: str = Field(
+        description="Areas where the candidate excels vs the job. MUST be a Markdown table with exactly two columns: 'Finding' and 'Evidence from CV'."
     )
     weaknesses: List[str] = Field(
         default_factory=list, description="Areas where the candidate falls short"
@@ -257,8 +257,8 @@ class FinalReport(BaseModel):
     )
     key_strengths: List[str] = Field(default_factory=list)
     critical_gaps: List[str] = Field(default_factory=list)
-    top_recommendations: List[str] = Field(
-        default_factory=list, description="Top 5 actionable recommendations"
+    top_recommendations: str = Field(
+        description="Top actionable recommendations. MUST be a Markdown table with exactly two columns: 'Finding' and 'Evidence from CV'."
     )
     hiring_probability: str = Field(
         description="Estimated likelihood of success: Low / Medium / High"

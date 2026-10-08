@@ -1,4 +1,4 @@
-﻿"""
+"""
 CareerPilot AI - Skill Matching Agent
 
 Compares the candidate skills against job requirements and produces a
@@ -64,7 +64,13 @@ def compute_deterministic_score(
     Returns an integer 0-100.
     """
     matched_set = {s.lower().strip() for s in matched}
-    partial_set = {s.lower().strip() for s in partial}
+    
+    partial_set = set()
+    for p in partial:
+        if isinstance(p, str):
+            partial_set.add(p.lower().strip())
+        else:
+            partial_set.add(p.skill.lower().strip())
 
     req_total = len(required)
     pref_total = len(preferred)
