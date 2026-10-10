@@ -96,6 +96,22 @@ def get_structured_llm(schema, temperature: float = 0.1):
     llm = get_llm(temperature=temperature)
     settings = get_settings()
     
+    # Automatically fallback to Google Gemini if Groq fails (e.g., rate limit)
+    if settings.llm_provider == "openai" and settings.llm_base_url and "groq" in settings.llm_base_url.lower():
+        if settings.google_api_key:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                google_llm = ChatGoogleGenerativeAI(
+                    model="gemini-1.5-flash",
+                    temperature=temperature,
+                    google_api_key=settings.google_api_key,
+                    request_timeout=float(settings.agent_timeout_seconds),
+                )
+                llm = llm.with_fallbacks([google_llm])
+                logger.info("Configured Google Gemini as fallback for Groq.")
+            except ImportError:
+                pass
+    
     # Use native structured output for standard providers
     if settings.llm_provider != "openai" or not settings.llm_base_url or "openrouter" not in settings.llm_base_url.lower():
         return llm.with_structured_output(schema)
