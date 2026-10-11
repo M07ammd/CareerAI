@@ -122,10 +122,11 @@ async def gap_agent(state: CareerPilotState) -> dict:
             + len(result.low_priority_gaps)
         )
         logger.info(
-            "[GapAgent] Done. High: %d | Medium: %d | Low: %d",
+            "[GapAgent] Done. High: %d | Medium: %d | Low: %d | Critical Blockers: %s",
             len(result.high_priority_gaps),
             len(result.medium_priority_gaps),
             len(result.low_priority_gaps),
+            result.critical_blockers,
         )
         return {
             "skill_gaps": result,

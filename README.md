@@ -104,7 +104,7 @@ CareerAI/
 │   │   ├── web_search.py          # Tavily → Serper fallback
 │   │   └── file_writer.py         # Optional report persistence
 │   ├── config.py                  # Pydantic Settings (all env vars)
-│   ├── llm.py                     # LLM factory (openai / google / anthropic)
+│   ├── llm.py                     # LLM factory (openai / google)
 │   └── main.py                    # FastAPI app + middleware
 ├── frontend/                      # React + Vite SPA
 ├── tests/                         # Pytest suite (no real API calls)
@@ -125,12 +125,11 @@ Copy `.env.example` to `.env` and fill in your secrets.
 
 | Variable | Default | Description |
 |---|---|---|
-| `LLM_PROVIDER` | `openai` | `openai` \| `google` \| `anthropic` |
+| `LLM_PROVIDER` | `openai` | `openai` \| `google` |
 | `LLM_MODEL` | `gpt-4o-mini` | Model name for the selected provider |
 | `LLM_BASE_URL` | _(empty)_ | Optional custom base URL (e.g. OpenRouter) |
 | `OPENAI_API_KEY` | _(required)_ | OpenAI API key |
 | `GOOGLE_API_KEY` | _(optional)_ | Google API key |
-| `ANTHROPIC_API_KEY` | _(optional)_ | Anthropic API key |
 | `WEB_SEARCH_ENABLED` | `true` | Toggle web search enrichment |
 | `TAVILY_API_KEY` | _(optional)_ | Tavily search key (primary) |
 | `SERPER_API_KEY` | _(optional)_ | Serper search key (fallback) |

@@ -70,6 +70,15 @@ async def lifespan(app: FastAPI):
     logger.info("  Save Reports: %s", settings.save_reports)
     logger.info("=" * 60)
 
+    # Validate LLM configuration
+    provider = settings.llm_provider.lower()
+    if provider == "openai" and not settings.openai_api_key:
+        logger.error("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
+        raise ValueError("Missing OPENAI_API_KEY")
+    elif provider == "google" and not settings.google_api_key:
+        logger.error("GOOGLE_API_KEY is required when LLM_PROVIDER=google")
+        raise ValueError("Missing GOOGLE_API_KEY")
+
     try:
         from app.graph.graph import get_graph
 

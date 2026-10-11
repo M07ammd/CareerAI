@@ -66,6 +66,20 @@ async def cv_suggestion_agent(state: CareerPilotState) -> dict:
 
     try:
         result: BulletRewrites = await llm.ainvoke(messages)
+        
+        # IMPORTANT: We need to update the existing final_report, not create a new one
+        if not final_report:
+            logger.error("[CVSuggestionAgent] final_report is None, cannot update")
+            return {
+                "errors": [
+                    {
+                        "step": WorkflowStep.CV_SUGGESTION_AGENT,
+                        "error": "final_report is None",
+                    }
+                ],
+                "processing_log": ["CVSuggestionAgent FAILED: final_report is None"],
+            }
+        
         # Mutate the existing report copy
         final_report = final_report.model_copy()
         final_report.cv_bullet_rewrites = result.rewrites

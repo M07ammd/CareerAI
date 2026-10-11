@@ -262,5 +262,6 @@ def test_llm_no_base_url_by_default():
     """Without LLM_BASE_URL set, llm_base_url should be None."""
     from app.config import Settings
 
-    s = Settings(llm_provider="openai", openai_api_key="sk-test")
+    # Isolate from environment by not loading .env file
+    s = Settings(llm_provider="openai", openai_api_key="sk-test", _env_file=None)
     assert s.llm_base_url is None

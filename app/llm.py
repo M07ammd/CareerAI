@@ -24,7 +24,7 @@ def get_llm(temperature: float = 0.1) -> BaseChatModel:
     """
     Return a configured LLM instance.
 
-    Provider is selected by LLM_PROVIDER env var (openai | google | anthropic).
+    Provider is selected by LLM_PROVIDER env var (openai | google).
     Model is selected by LLM_MODEL env var.
     An optional LLM_BASE_URL overrides the default API endpoint (e.g. OpenRouter).
     Timeout is taken from AGENT_TIMEOUT_SECONDS.
@@ -67,22 +67,6 @@ def get_llm(temperature: float = 0.1) -> BaseChatModel:
         except ImportError as exc:
             raise ImportError(
                 "Install langchain-google-genai to use the Google provider."
-            ) from exc
-
-    if provider == "anthropic":
-        try:
-            from langchain_anthropic import ChatAnthropic  # type: ignore
-
-            return ChatAnthropic(
-                model=settings.llm_model,
-                temperature=temperature,
-                anthropic_api_key=settings.anthropic_api_key,
-                timeout=timeout,
-                max_retries=0,
-            )
-        except ImportError as exc:
-            raise ImportError(
-                "Install langchain-anthropic to use the Anthropic provider."
             ) from exc
 
     raise ValueError(f"Unsupported LLM provider: {provider!r}")

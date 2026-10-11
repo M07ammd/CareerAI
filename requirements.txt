@@ -8,7 +8,6 @@ langchain==0.3.7
 langchain-core==0.3.15
 langchain-openai==0.2.6
 # langchain-google-genai==2.0.1   # uncomment for Google provider
-# langchain-anthropic==0.2.3      # uncomment for Anthropic provider
 
 pydantic==2.9.2
 pydantic-settings==2.6.0

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # ---- LLM ---------------------------------------------------------------
     llm_provider: str = Field(
-        default="openai", description="openai | google | anthropic"
+        default="openai", description="openai | google"
     )
     llm_model: str = Field(default="gpt-4o-mini")
     llm_base_url: str | None = Field(
@@ -34,7 +34,6 @@ class Settings(BaseSettings):
     # ---- API Keys -----------------------------------------------------------
     openai_api_key: str | None = Field(default=None)
     google_api_key: str | None = Field(default=None)
-    anthropic_api_key: str | None = Field(default=None)
 
     # ---- Web Search --------------------------------------------------------
     tavily_api_key: str | None = Field(default=None)

@@ -99,7 +99,6 @@ async def health_ready():
     key_present = bool(
         (s.llm_provider == "openai" and s.openai_api_key)
         or (s.llm_provider == "google" and s.google_api_key)
-        or (s.llm_provider == "anthropic" and s.anthropic_api_key)
     )
     if not key_present:
         raise HTTPException(

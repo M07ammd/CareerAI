@@ -30,8 +30,16 @@ def _get_current_year() -> str:
 async def async_web_search(query: str, max_results: int = 5) -> list[str]:
     """
     Search the web asynchronously and return a list of result snippets.
+    
     Automatically replaces "2024" with current year.
     Uses exponential backoff with jitter on retries.
+    
+    Args:
+        query: Search query string
+        max_results: Maximum number of results to return
+        
+    Returns:
+        List of result snippets (may be empty if all providers fail)
     """
     query = query.replace("2024", _get_current_year())
     cache_key = f"{query}_{max_results}"
@@ -63,7 +71,7 @@ async def async_web_search(query: str, max_results: int = 5) -> list[str]:
             logger.warning("Search error: %s", exc)
             break
 
-    logger.warning("All web search providers failed for query: %r", query)
+    logger.info("Web search providers unavailable for query: %r (analysis will continue without web enrichment)", query)
     return []
 
 

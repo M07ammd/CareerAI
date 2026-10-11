@@ -61,7 +61,14 @@ def compute_deterministic_score(
     Partial matches count as half. Skills the LLM adds that are not in the
     JD lists are ignored. JD skills the LLM omits are counted as missing.
 
-    Returns an integer 0-100.
+    Args:
+        required: Required skills from job description
+        preferred: Preferred skills from job description
+        matched: Skills the candidate has (full match)
+        partial: Skills the candidate has partial knowledge of
+
+    Returns:
+        An integer score from 0-100
     """
     matched_set = {s.lower().strip() for s in matched}
 
@@ -70,10 +77,8 @@ def compute_deterministic_score(
         if isinstance(p, str):
             partial_set.add(p.lower().strip())
         else:
+            # Handle PartialSkillMatch objects
             partial_set.add(p.skill.lower().strip())
-
-    req_total = len(required)
-    pref_total = len(preferred)
 
     def _score_list(skills: Sequence[str], weight: float) -> float:
         if not skills:
@@ -85,10 +90,23 @@ def compute_deterministic_score(
                 points += 1.0
             elif key in partial_set:
                 points += _PARTIAL_FACTOR
+            # else: missing skill = 0 points
         return weight * (points / len(skills))
 
     req_score = _score_list(required, _REQUIRED_WEIGHT)
     pref_score = _score_list(preferred, _PREFERRED_WEIGHT)
+    
+    logger.debug(
+        "[SkillAgent] Score calculation: required=%d/%d (%.1f), preferred=%d/%d (%.1f), total=%d",
+        len([s for s in required if s.lower().strip() in matched_set or s.lower().strip() in partial_set]),
+        len(required),
+        req_score,
+        len([s for s in preferred if s.lower().strip() in matched_set or s.lower().strip() in partial_set]),
+        len(preferred),
+        pref_score,
+        round(req_score + pref_score)
+    )
+    
     return round(req_score + pref_score)
 
 
